@@ -1,6 +1,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+const path = require('path');
 
 const app = express();
 const port = 3000;
@@ -12,6 +13,10 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'new_index.html'));
+})
 
 // Endpoint 1: Retrieve all restaurant menus
 app.get('/api/all-restaurant-menus', async (req, res) => {
