@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yippee - Food Discovery & Menu Explorer</title>
+    <link rel="stylesheet" href="app-styles.css">
+</head>
+<body>
+    <!-- Global Header -->
+    <header class="global-header">
+        <div class="header-content">
+            <div class="logo">
+                <h1>🍽️ Yippee</h1>
+            </div>
+            
+            <!-- Global Search Bar with Filters -->
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <input type="text" id="globalSearch" placeholder="Search restaurants, dishes, or cuisines..." class="search-input">
+                    <button class="search-btn">🔍</button>
+                    <button class="filter-btn" id="filterToggle">🎛️ Filters</button>
+                    <button class="clear-filters-btn" id="clearFilters" style="display: none;">✕ Clear</button>
+                </div>
+                
+                <!-- Filter Panel (Collapsible) -->
+                <div class="filter-panel" id="filterPanel" style="display: none;">
+                    <div class="filter-section">
+                        <h3>Dietary Preferences</h3>
+                        <div class="filter-tags">
+                            <label class="filter-tag vegan"><input type="checkbox" value="vegan"> Vegan</label>
+                            <label class="filter-tag vegetarian"><input type="checkbox" value="vegetarian"> Vegetarian</label>
+                            <label class="filter-tag meat"><input type="checkbox" value="meat-eater"> Meat-Eater</label>
+                            <label class="filter-tag gluten-free"><input type="checkbox" value="gluten-free"> Gluten-Free</label>
+                            <label class="filter-tag dairy-free"><input type="checkbox" value="dairy-free"> Dairy-Free</label>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h3>Nutritional Focus</h3>
+                        <div class="filter-tags">
+                            <label class="filter-tag protein"><input type="checkbox" value="high-protein"> High Protein</label>
+                            <label class="filter-tag"><input type="checkbox" value="low-calorie"> Low Calorie</label>
+                            <label class="filter-tag"><input type="checkbox" value="high-fiber"> High Fiber</label>
+                            <label class="filter-tag"><input type="checkbox" value="low-carb"> Low Carb</label>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h3>Allergens to Avoid</h3>
+                        <div class="filter-tags">
+                            <label class="filter-tag allergen"><input type="checkbox" value="nuts"> Nuts</label>
+                            <label class="filter-tag allergen"><input type="checkbox" value="dairy"> Dairy</label>
+                            <label class="filter-tag allergen"><input type="checkbox" value="gluten"> Gluten</label>
+                            <label class="filter-tag allergen"><input type="checkbox" value="shellfish"> Shellfish</label>
+                            <label class="filter-tag allergen"><input type="checkbox" value="soy"> Soy</label>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h3>Price Range</h3>
+                        <div class="price-range">
+                            <input type="range" min="0" max="100" value="100" id="priceRange">
+                            <span id="priceValue">$0 - $100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Shopping List Icon -->
+            <div class="shopping-list-icon" id="shoppingListIcon" style="display: none;">
+                <button class="icon-btn" onclick="openShoppingList()">
+                    🛒 <span class="badge" id="cartCount">0</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <nav class="main-nav">
+            <button class="nav-tab active" data-page="map">🗺️ Map</button>
+            <button class="nav-tab" data-page="restaurant-list">📋 Restaurant List</button>
+            <button class="nav-tab" data-page="socials">💬 Socials</button>
+            <button class="nav-tab" data-page="user">👤 User</button>
+            <button class="nav-tab admin-only" data-page="upload" style="display: none;">⚙️ Admin</button>
+        </nav>
+    </header>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Map View -->
+        <section id="map-page" class="page-content active">
+            <div class="map-container">
+                <div id="map" class="map-view">
+                    <div class="map-placeholder">
+                        <p>🗺️ Interactive Map View</p>
+                        <p class="sub-text">Map integration coming soon (Google Maps API)</p>
+                    </div>
+                </div>
+                
+                <!-- Map Sidebar -->
+                <div class="map-sidebar">
+                    <h3>Nearby Restaurants</h3>
+                    <div class="restaurant-quick-list" id="mapRestaurantList">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Restaurant List View -->
+        <section id="restaurant-list-page" class="page-content">
+            <div class="list-controls">
+                <div class="sort-options">
+                    <label>Sort by:</label>
+                    <select id="sortBy">
+                        <option value="distance">Distance</option>
+                        <option value="rating">Rating</option>
+                        <option value="price-low">Price (Low to High)</option>
+                        <option value="price-high">Price (High to Low)</option>
+                    </select>
+                </div>
+                
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="grid">⊞ Grid</button>
+                    <button class="view-btn" data-view="list">☰ List</button>
+                </div>
+            </div>
+            
+            <div class="restaurant-grid" id="restaurantGrid">
+                <!-- Restaurant cards populated dynamically -->
+            </div>
+        </section>
+        
+        <!-- Socials View -->
+        <section id="socials-page" class="page-content">
+            <div class="socials-container">
+                <div class="post-composer">
+                    <textarea placeholder="Share your food discovery..." id="newPost"></textarea>
+                    <div class="composer-actions">
+                        <button class="btn-primary">📝 Post</button>
+                        <button class="btn-secondary">📷 Add Photo</button>
+                    </div>
+                </div>
+                
+                <!-- Social Timeline -->
+                <div class="social-timeline" id="socialTimeline">
+                    <!-- Posts populated dynamically -->
+                </div>
+                
+                <div class="load-more-container">
+                    <button class="btn-secondary" id="loadMorePosts">Load More Posts</button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- User Profile View -->
+        <section id="user-page" class="page-content">
+            <div class="user-profile-container">
+                <div class="profile-header">
+                    <div class="profile-avatar">👤</div>
+                    <div class="profile-info">
+                        <h2 id="userName">Guest User</h2>
+                        <p id="userLocation">📍 Location not set</p>
+                    </div>
+                    <button class="btn-primary" onclick="editProfile()">✏️ Edit Profile</button>
+                </div>
+                
+                <!-- Profile Sections -->
+                <div class="profile-sections">
+                    <!-- Favorites -->
+                    <div class="profile-section">
+                        <h3>❤️ Favorites</h3>
+                        <div class="favorites-list" id="favoritesList">
+                            <p class="empty-state">No favorites yet. Start exploring!</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Preferences -->
+                    <div class="profile-section">
+                        <h3>⚙️ App Preferences</h3>
+                        <div class="preferences-form">
+                            <div class="pref-group">
+                                <label>Default Dietary Filter:</label>
+                                <select id="defaultDiet" multiple>
+                                    <option value="vegan">Vegan</option>
+                                    <option value="vegetarian">Vegetarian</option>
+                                    <option value="high-protein">High Protein</option>
+                                    <option value="gluten-free">Gluten-Free</option>
+                                </select>
+                            </div>
+                            
+                            <div class="pref-group">
+                                <label>Notification Preferences:</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" id="notifProximity"> Location-based alerts</label>
+                                    <label><input type="checkbox" id="notifFavorites"> Favorite restaurant updates</label>
+                                    <label><input type="checkbox" id="notifPrice"> Price change alerts</label>
+                                    <label><input type="checkbox" id="notifReduced"> Reduce notification frequency</label>
+                                </div>
+                            </div>
+                            
+                            <button class="btn-primary" onclick="savePreferences()">💾 Save Preferences</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Upload/Admin View -->
+        <section id="upload-page" class="page-content">
+            <div class="upload-container">
+                <h2>📤 Upload Restaurant Data</h2>
+                
+                <div class="upload-form">
+                    <div class="upload-type">
+                        <label>Upload Type:</label>
+                        <select id="uploadType">
+                            <option value="restaurant">Restaurant</option>
+                            <option value="menu">Menu</option>
+                            <option value="item">Menu Item</option>
+                        </select>
+                    </div>
+                    
+                    <div class="file-upload">
+                        <label class="upload-area" for="fileInput">
+                            <div class="upload-icon">📁</div>
+                            <p>Drop files here or click to browse</p>
+                            <p class="sub-text">CSV, JSON, Image (PNG/JPEG), PDF</p>
+                            <input type="file" id="fileInput" accept=".csv,.json,.png,.jpg,.jpeg,.pdf" multiple>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-prompt">
+                        <label>AI Analysis Prompt (optional):</label>
+                        <textarea id="aiPrompt" placeholder="e.g., 'Restaurant is entirely vegan with organic ingredients...'"></textarea>
+                    </div>
+                    
+                    <div class="upload-actions">
+                        <button class="btn-primary" onclick="processUpload()">🤖 Analyze with AI</button>
+                        <button class="btn-secondary" onclick="manualEntry()">✏️ Manual Entry</button>
+                    </div>
+                </div>
+                
+                <!-- Preview Area -->
+                <div class="upload-preview" id="uploadPreview" style="display: none;">
+                    <h3>Preview & Edit Data</h3>
+                    <div id="previewContent"></div>
+                    <button class="btn-primary" onclick="submitToDatabase()">✅ Submit to Database</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Modals -->
+    
+    <!-- Restaurant Detail Modal -->
+    <div class="modal" id="restaurantModal">
+        <div class="modal-overlay" onclick="closeModal('restaurantModal')"></div>
+        <div class="modal-content large">
+            <button class="modal-close" onclick="closeModal('restaurantModal')">✕</button>
+            
+            <div class="restaurant-detail">
+                <!-- Restaurant Header -->
+                <div class="restaurant-header">
+                    <div class="restaurant-images">
+                        <div class="image-carousel" id="restaurantCarousel">
+                            <!-- Images populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="restaurant-info-detail">
+                        <h2 id="modalRestaurantName"></h2>
+                        <p id="modalRestaurantDescription"></p>
+                        
+                        <div class="contact-info">
+                            <div class="contact-item">
+                                <span>📍</span>
+                                <span id="modalRestaurantAddress"></span>
+                            </div>
+                            <div class="contact-item">
+                                <span>📞</span>
+                                <span id="modalRestaurantPhone"></span>
+                                <button class="copy-btn" onclick="copyText('phone')">📋</button>
+                            </div>
+                            <div class="contact-item">
+                                <span>📧</span>
+                                <span id="modalRestaurantEmail"></span>
+                                <button class="copy-btn" onclick="copyText('email')">📋</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Optional Map Toggle -->
+                        <div class="map-toggle">
+                            <button class="btn-secondary" onclick="toggleLocalMap()">🗺️ Show/Hide Map</button>
+                        </div>
+                        <div class="local-map" id="localMap" style="display: none;">
+                            <div class="map-placeholder-small">Local Map View</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Disclaimer -->
+                <div class="disclaimer" id="restaurantDisclaimer">
+                    <span class="disclaimer-icon">⚠️</span>
+                    <p><strong>Disclaimer:</strong> Restaurant information and data is not verified by the restaurant. Always contact the restaurant for further information regarding allergens, dietary needs, location, price updates.</p>
+                    <button class="disclaimer-collapse" onclick="collapseDisclaimer(this)">Collapse</button>
+                </div>
+                
+                <!-- Menu Section -->
+                <div class="menu-section">
+                    <div class="menu-header-sticky">
+                        <h3>Menu</h3>
+                        <div class="menu-search-bar">
+                            <input type="text" placeholder="Search menu items..." id="menuSearch">
+                            <button class="filter-btn" onclick="toggleMenuFilters()">🎛️ Filters</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Menu Filters -->
+                    <div class="menu-filters" id="menuFilters" style="display: none;">
+                        <div class="quick-filter-presets">
+                            <button class="preset-btn" data-preset="vegan">Vegan Only</button>
+                            <button class="preset-btn" data-preset="high-protein">High Protein</button>
+                            <button class="preset-btn" data-preset="low-carb">Low Carb</button>
+                            <button class="preset-btn" data-preset="gluten-free">Gluten-Free</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Menu Items -->
+                    <div class="menu-items-list" id="menuItemsList">
+                        <!-- Menu items populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nutrition Modal -->
+    <div class="modal" id="nutritionModal">
+        <div class="modal-overlay" onclick="closeModal('nutritionModal')"></div>
+        <div class="modal-content medium">
+            <button class="modal-close" onclick="closeModal('nutritionModal')">✕</button>
+            
+            <h2>Nutrition & Ingredients</h2>
+            
+            <!-- Ingredients Checklist -->
+            <div class="ingredients-section">
+                <h3>Ingredients</h3>
+                <p class="help-text">Uncheck items to remove them and update nutrition automatically</p>
+                <div class="ingredients-checklist" id="ingredientsList">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            
+            <!-- Nutrition Stats -->
+            <div class="nutrition-stats" id="nutritionStats">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <!-- Option Values for Customizable Items -->
+            <div class="option-values-section" id="optionValuesSection" style="display: none;">
+                <h3>Customization Options</h3>
+                <div id="optionValuesList"></div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="generateItemImage()">🎨 Generate Image</button>
+                <button class="btn-primary" onclick="saveCustomization()">💾 Save Configuration</button>
+            </div>
+            
+            <!-- AI Generated Disclaimer -->
+            <div class="disclaimer mini">
+                <span class="disclaimer-icon">⚠️</span>
+                <p><strong>Note:</strong> Food information including ingredients and nutrition is assumed and not verified by the restaurant.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Make It Modal (Auto-Customization) -->
+    <div class="modal" id="makeItModal">
+        <div class="modal-overlay" onclick="closeModal('makeItModal')"></div>
+        <div class="modal-content medium">
+            <button class="modal-close" onclick="closeModal('makeItModal')">✕</button>
+            
+            <h2>🎯 Make It Your Way</h2>
+            <p class="help-text">Auto-selecting options based on your preferences...</p>
+            
+            <div class="preference-selection">
+                <label><input type="checkbox" value="vegan" checked> Vegan</label>
+                <label><input type="checkbox" value="high-protein" checked> High-Protein</label>
+                <label><input type="checkbox" value="low-calorie"> Low Calorie</label>
+                <label><input type="checkbox" value="high-fiber"> High Fiber</label>
+            </div>
+            
+            <div class="auto-selected-options" id="autoSelectedOptions">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="undoMakeIt()">↩️ Undo</button>
+                <button class="btn-primary" onclick="applyMakeIt()">✅ Apply</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Translate Modal -->
+    <div class="modal" id="translateModal">
+        <div class="modal-overlay" onclick="closeModal('translateModal')"></div>
+        <div class="modal-content medium">
+            <button class="modal-close" onclick="closeModal('translateModal')">✕</button>
+            
+            <h2>🌍 Order Translation</h2>
+            
+            <div class="language-selection">
+                <label>Select Language:</label>
+                <select id="translateLanguage">
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh">Chinese</option>
+                </select>
+            </div>
+            
+            <div class="translation-output" id="translationOutput">
+                <!-- Generated translation script -->
+            </div>
+            
+            <button class="btn-primary" onclick="copyTranslation()">📋 Copy Script</button>
+        </div>
+    </div>
+    
+    <!-- Shopping List Modal -->
+    <div class="modal" id="shoppingListModal">
+        <div class="modal-overlay" onclick="closeModal('shoppingListModal')"></div>
+        <div class="modal-content large">
+            <button class="modal-close" onclick="closeModal('shoppingListModal')">✕</button>
+            
+            <h2>🛒 Shopping List</h2>
+            
+            <div class="shopping-list-content" id="shoppingListContent">
+                <!-- Grouped by restaurant -->
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="exportShoppingList()">📤 Export</button>
+                <button class="btn-primary" onclick="clearShoppingList()">🗑️ Clear List</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Generation Modal -->
+    <div class="modal" id="imageGenModal">
+        <div class="modal-overlay" onclick="closeModal('imageGenModal')"></div>
+        <div class="modal-content medium">
+            <button class="modal-close" onclick="closeModal('imageGenModal')">✕</button>
+            
+            <h2>🎨 Generated Image</h2>
+            
+            <div class="generated-image-container" id="generatedImageContainer">
+                <div class="loading-spinner">Generating image...</div>
+            </div>
+            
+            <button class="btn-primary" onclick="downloadImage()">⬇️ Download</button>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+
