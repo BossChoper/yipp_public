@@ -1,22 +1,27 @@
 {
-  "name": "database_testing",
+  "name": "yippee-database-testing",
   "version": "1.0.0",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.x"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "mock": "node mock-server.js",
-    "dev": "node mock-server.js"
+    "dev": "node mock-server.js",
+    "vercel-build": "echo 'No build step required'"
   },
-  "keywords": [],
+  "keywords": ["yippee", "restaurant", "food", "api"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Yippee food discovery app backend API",
   "dependencies": {
     "@supabase/supabase-js": "^2.55.0",
+    "axios": "^1.6.2",
+    "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "express": "^4.18.2",
-    "path": "^0.12.7"
+    "express": "^4.18.2"
   }
 }
