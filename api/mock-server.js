@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+import serverless from 'serverless-http'; // new dependency
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -882,13 +883,7 @@ app.listen(PORT, () => {
     console.log('================================\n');
 });
 
-export default function handler(req, res) {
-    if (req.method === 'GET') {
-      res.status(200).json({ message: 'Mock server is live!' });
-    } else {
-      res.status(405).json({ error: 'Method not allowed' });
-    }
-  }
+export default serverless(app); 
 
 module.exports = app;
 
