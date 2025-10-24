@@ -6,7 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-import serverless from 'serverless-http'; // new dependency
+const serverless =  require('serverless-http'); // new dependency
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -886,5 +886,5 @@ app.listen(PORT, () => {
 */
 export default serverless(app); 
 
-module.exports = app;
+module.exports = serverless(app);
 
