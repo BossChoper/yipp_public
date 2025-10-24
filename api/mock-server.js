@@ -860,7 +860,8 @@ app.use((err, req, res, next) => {
 // ========================================
 // Start Server
 // ========================================
-
+/* Serverless Function */
+/*
 app.listen(PORT, () => {
     console.log('\n🍽️  Yippee Mock Backend Server');
     console.log('================================');
@@ -882,7 +883,7 @@ app.listen(PORT, () => {
     console.log('\n🌐 Frontend: http://localhost:' + PORT);
     console.log('================================\n');
 });
-
+*/
 export default serverless(app); 
 
 module.exports = app;
