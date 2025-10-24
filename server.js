@@ -2,9 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
-const axios = require('axios');
-const cors = require('cors');
-// const { processMenuWithGroq } = require('./menu-processor'); // TODO: Implement menu processor
+const { processMenuWithGroq } = require('./menu-processor');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -14,10 +12,9 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors()); // Enable CORS for all routes
 app.use(bodyParser.json());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public directory
+// app.use(express.static(__dirname +'/public'));
 
 
 // Initialize Supabase client
@@ -58,11 +55,10 @@ app.get('/upload', (req, res) => {
 
 // ------------------------------------------------------------------------------------------------
 // Backend API Endpoints + Admin Upload and Management Endpoints
-// TODO: Implement menu processing endpoint
-// app.post('/api/process-menu', async (req, res) => {
-//   console.log("Received menu process request");
-//   res.status(501).json({ error: 'Menu processing not yet implemented' });
-// });
+app.post('/api/process-menu', async (req, res) => {
+  console.log("Received menu process request");
+})
+//
 
 
 

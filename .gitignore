@@ -1,20 +1,7 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-.DS_Store
-
-# Environment variables
+node_modules
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Vercel
+.env.production
 .vercel
+*.log
+.DS_Store
