@@ -883,8 +883,12 @@ app.listen(PORT, () => {
 });
 
 export default function handler(req, res) {
-    res.status(200).json({ message: 'Server function working' });
-}
+    if (req.method === 'GET') {
+      res.status(200).json({ message: 'Mock server is live!' });
+    } else {
+      res.status(405).json({ error: 'Method not allowed' });
+    }
+  }
 
 module.exports = app;
 
