@@ -14,11 +14,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'app.html'));
-});
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ========================================
 // Mock Data
@@ -841,7 +837,7 @@ app.get('/api/health', (req, res) => {
 
 // Serve frontend
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'app.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'app.html'));
 });
 
 // ========================================
@@ -860,31 +856,32 @@ app.use((err, req, res, next) => {
 // ========================================
 // Start Server
 // ========================================
-/* Serverless Function */
-/*
-app.listen(PORT, () => {
-    console.log('\n🍽️  Yippee Mock Backend Server');
-    console.log('================================');
-    console.log(`✅ Server running on http://localhost:${PORT}`);
-    console.log(`📊 Mock restaurants loaded: ${mockRestaurants.length}`);
-    console.log(`🍔 Total menu items: ${mockRestaurants.reduce((sum, r) => 
-        sum + r.menus.reduce((menuSum, m) => menuSum + m.items.length, 0), 0
-    )}`);
-    console.log('\n📡 API Endpoints:');
-    console.log('   GET  /api/all-restaurant-menus');
-    console.log('   GET  /api/restaurants/:id');
-    console.log('   GET  /api/menu-items/:id/nutrition');
-    console.log('   POST /api/menu-items');
-    console.log('   PUT  /api/menu-items/:id');
-    console.log('   DELETE /api/menu-items/:id');
-    console.log('   GET  /api/search?q=query&dietary=tag');
-    console.log('   GET  /api/stats');
-    console.log('   GET  /api/health');
-    console.log('\n🌐 Frontend: http://localhost:' + PORT);
-    console.log('================================\n');
-});
-*/
-export default serverless(app); 
 
-module.exports = serverless(app);
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log('\n🍽️  Yippee Mock Backend Server');
+        console.log('================================');
+        console.log(`✅ Server running on http://localhost:${PORT}`);
+        console.log(`📊 Mock restaurants loaded: ${mockRestaurants.length}`);
+        console.log(`🍔 Total menu items: ${mockRestaurants.reduce((sum, r) => 
+            sum + r.menus.reduce((menuSum, m) => menuSum + m.items.length, 0), 0
+        )}`);
+        console.log('\n📡 API Endpoints:');
+        console.log('   GET  /api/all-restaurant-menus');
+        console.log('   GET  /api/restaurants/:id');
+        console.log('   GET  /api/menu-items/:id/nutrition');
+        console.log('   POST /api/menu-items');
+        console.log('   PUT  /api/menu-items/:id');
+        console.log('   DELETE /api/menu-items/:id');
+        console.log('   GET  /api/search?q=query&dietary=tag');
+        console.log('   GET  /api/stats');
+        console.log('   GET  /api/health');
+        console.log('\n🌐 Frontend: http://localhost:' + PORT);
+        console.log('================================\n');
+    });
+}
+
+// For Vercel serverless deployment
+module.exports = app;
 

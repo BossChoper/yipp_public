@@ -2,19 +2,24 @@
   "version": 2,
   "builds": [
     {
-      "src": "mock-server.js",
+      "src": "api/mock-server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "api/mock-server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "mock-server.js"
+      "dest": "api/mock-server.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
 
 
