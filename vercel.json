@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/mock-server.js",
+      "src": "api/mock-server.cjs",
       "use": "@vercel/node"
     },
     {
@@ -13,11 +13,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/mock-server.js"
+      "dest": "api/mock-server.cjs"
     },
     {
       "src": "/(.*)",
-      "dest": "api/mock-server.js"
+      "dest": "api/mock-server.cjs"
     }
   ]
 }
