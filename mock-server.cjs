@@ -1,8 +1,9 @@
 /**
  * Yippee Mock Backend Server
- * Provides API endpoints with mock restaurant data
+ * Provides API endpoints with Supabase integration
  */
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -10,6 +11,20 @@ const serverless =  require('serverless-http'); // new dependency
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.warn('⚠️  WARNING: Supabase credentials not found in environment variables!');
+    console.warn('   Please create a .env file with SUPABASE_URL and SUPABASE_ANON_KEY');
+    console.warn('   Falling back to mock data...\n');
+}
+
+const supabase = supabaseUrl && supabaseKey 
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
 // Middleware
 app.use(cors());
@@ -618,50 +633,126 @@ function generateId() {
 // ========================================
 
 // Get all restaurants with menus
-app.get('/api/all-restaurant-menus', (req, res) => {
+app.get('/api/all-restaurant-menus', async (req, res) => {
     console.log('📋 GET /api/all-restaurant-menus');
-    res.json(mockRestaurants);
+    
+    if (!supabase) {
+        return res.json(mockRestaurants);
+    }
+    
+    try {
+        // Get restaurants with their menus and menu items
+        const { data: restaurants, error: restaurantError } = await supabase
+            .from('restaurant')
+            .select(`
+                restaurant_id,
+                name,
+                description,
+                phone,
+                website,
+                average_price,
+                is_verified,
+                menus:menu(
+                    menu_id,
+                    menu_name,
+                    menu_type,
+                    is_active,
+                    menu_items:menu_item(
+                        menu_item_id,
+                        display_name,
+                        three_word_alternative_name,
+                        item_description,
+                        twelve_word_description,
+                        base_price,
+                        portion_size,
+                        meal_type,
+                        is_active,
+                        is_customizable,
+                        nutrition:nutrition(*)
+                    )
+                )
+            `)
+            .eq('is_active', true);
+            
+        if (restaurantError) throw restaurantError;
+        
+        res.json(restaurants || []);
+    } catch (error) {
+        console.error('Error fetching restaurants:', error);
+        res.status(500).json({ error: 'Failed to fetch restaurants', details: error.message });
+    }
 });
 
 // Get single restaurant
-app.get('/api/restaurants/:id', (req, res) => {
+app.get('/api/restaurants/:id', async (req, res) => {
     console.log(`🏪 GET /api/restaurants/${req.params.id}`);
-    const restaurant = mockRestaurants.find(r => r.restaurant_id === req.params.id);
     
-    if (restaurant) {
+    if (!supabase) {
+        const restaurant = mockRestaurants.find(r => r.restaurant_id === req.params.id);
+        return restaurant ? res.json(restaurant) : res.status(404).json({ error: 'Restaurant not found' });
+    }
+    
+    try {
+        const { data: restaurant, error } = await supabase
+            .from('restaurant')
+            .select(`
+                *,
+                menus:menu(
+                    *,
+                    menu_items:menu_item(
+                        *,
+                        nutrition:nutrition(*),
+                        menu_item_tags:menu_item_tag(
+                            tag:tag(*)
+                        ),
+                        menu_item_allergens:menu_item_allergen(
+                            allergen:allergen(*)
+                        ),
+                        menu_item_images:menu_item_image(
+                            image:image(*)
+                        )
+                    )
+                )
+            `)
+            .eq('restaurant_id', req.params.id)
+            .single();
+            
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return res.status(404).json({ error: 'Restaurant not found' });
+            }
+            throw error;
+        }
+        
         res.json(restaurant);
-    } else {
-        res.status(404).json({ error: 'Restaurant not found' });
+    } catch (error) {
+        console.error('Error fetching restaurant:', error);
+        res.status(500).json({ error: 'Failed to fetch restaurant', details: error.message });
     }
 });
 
 // Get menu item nutrition
-app.get('/api/menu-items/:id/nutrition', (req, res) => {
+app.get('/api/menu-items/:id/nutrition', async (req, res) => {
     console.log(`📊 GET /api/menu-items/${req.params.id}/nutrition`);
     
-    let foundNutrition = null;
-    
-    for (const restaurant of mockRestaurants) {
-        for (const menu of restaurant.menus) {
-            const item = menu.items.find(i => i.menu_item_id === req.params.id);
-            if (item && item.nutrition) {
-                foundNutrition = {
-                    ...item.nutrition,
-                    item_name: item.item_name,
-                    ingredients: item.ingredients,
-                    allergens: item.allergens
-                };
-                break;
+    if (!supabase) {
+        let foundNutrition = null;
+        for (const restaurant of mockRestaurants) {
+            for (const menu of restaurant.menus) {
+                const item = menu.items.find(i => i.menu_item_id === req.params.id);
+                if (item && item.nutrition) {
+                    foundNutrition = {
+                        ...item.nutrition,
+                        item_name: item.item_name,
+                        ingredients: item.ingredients,
+                        allergens: item.allergens
+                    };
+                    break;
+                }
             }
+            if (foundNutrition) break;
         }
-        if (foundNutrition) break;
-    }
-    
-    if (foundNutrition) {
-        res.json(foundNutrition);
-    } else {
-        // Return default nutrition if not found
-        res.json({
+        return res.json(foundNutrition || {
             calories: 450,
             protein_grams: 20,
             fat_grams: 15,
@@ -671,98 +762,517 @@ app.get('/api/menu-items/:id/nutrition', (req, res) => {
             sugar_grams: 5
         });
     }
+    
+    try {
+        const { data: menuItem, error } = await supabase
+            .from('menu_item')
+            .select(`
+                display_name,
+                nutrition:nutrition(*),
+                menu_item_ingredients:menu_item_ingredient(
+                    ingredient:ingredient(name)
+                ),
+                menu_item_allergens:menu_item_allergen(
+                    allergen:allergen(name, allergen_description)
+                )
+            `)
+            .eq('menu_item_id', req.params.id)
+            .single();
+            
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return res.status(404).json({ error: 'Menu item not found' });
+            }
+            throw error;
+        }
+        
+        // Format the response
+        const response = {
+            item_name: menuItem.display_name,
+            ...menuItem.nutrition,
+            ingredients: menuItem.menu_item_ingredients?.map(mi => mi.ingredient.name) || [],
+            allergens: menuItem.menu_item_allergens?.map(ma => ma.allergen.name) || []
+        };
+        
+        res.json(response);
+    } catch (error) {
+        console.error('Error fetching nutrition:', error);
+        res.status(500).json({ error: 'Failed to fetch nutrition data', details: error.message });
+    }
 });
 
 // Create menu item
-app.post('/api/menu-items', (req, res) => {
+app.post('/api/menu-items', async (req, res) => {
     console.log('➕ POST /api/menu-items', req.body);
     
-    const newItem = {
-        menu_item_id: generateId(),
-        item_name: req.body.display_name || req.body.item_name,
-        short_name: req.body.short_name || '',
-        description: req.body.item_description || req.body.description || '',
-        long_description: req.body.long_description || '',
-        base_price: parseFloat(req.body.base_price) || 0,
-        portion_size: req.body.portion_size || '',
-        meal_type: req.body.meal_type || 'All Day',
-        tags: req.body.tags || [],
-        image_url: req.body.image_url || null,
-        nutrition: req.body.nutrition || {},
-        ingredients: req.body.ingredients || [],
-        allergens: req.body.allergens || []
-    };
-    
-    // Add to first restaurant's first menu (for demo purposes)
-    if (mockRestaurants.length > 0 && mockRestaurants[0].menus.length > 0) {
-        mockRestaurants[0].menus[0].items.push(newItem);
+    if (!supabase) {
+        const newItem = {
+            menu_item_id: generateId(),
+            item_name: req.body.display_name || req.body.item_name,
+            short_name: req.body.short_name || '',
+            description: req.body.item_description || req.body.description || '',
+            long_description: req.body.long_description || '',
+            base_price: parseFloat(req.body.base_price) || 0,
+            portion_size: req.body.portion_size || '',
+            meal_type: req.body.meal_type || 'All Day',
+            tags: req.body.tags || [],
+            image_url: req.body.image_url || null,
+            nutrition: req.body.nutrition || {},
+            ingredients: req.body.ingredients || [],
+            allergens: req.body.allergens || []
+        };
+        
+        if (mockRestaurants.length > 0 && mockRestaurants[0].menus.length > 0) {
+            mockRestaurants[0].menus[0].items.push(newItem);
+        }
+        
+        return res.status(201).json({
+            success: true,
+            menu_item_id: newItem.menu_item_id,
+            message: 'Menu item created successfully'
+        });
     }
     
-    res.status(201).json({
-        success: true,
-        menu_item_id: newItem.menu_item_id,
-        message: 'Menu item created successfully'
-    });
+    try {
+        // First create nutrition data if provided
+        let nutritionId = null;
+        if (req.body.nutrition) {
+            const { data: nutritionData, error: nutritionError } = await supabase
+                .from('nutrition')
+                .insert({
+                    calories: req.body.nutrition.calories,
+                    protein_grams: req.body.nutrition.protein_grams,
+                    fat_grams: req.body.nutrition.fat_grams,
+                    carbohydrates_grams: req.body.nutrition.carbohydrates_grams,
+                    fiber_grams: req.body.nutrition.fiber_grams,
+                    sodium_mg: req.body.nutrition.sodium_mg,
+                    sugar_grams: req.body.nutrition.sugar_grams,
+                    saturated_fat_grams: req.body.nutrition.saturated_fat_grams,
+                    cholesterol_mg: req.body.nutrition.cholesterol_mg
+                })
+                .select()
+                .single();
+                
+            if (nutritionError) throw nutritionError;
+            nutritionId = nutritionData.nutrition_id;
+        }
+        
+        // Create the menu item
+        const { data: menuItem, error: menuItemError } = await supabase
+            .from('menu_item')
+            .insert({
+                menu_id: req.body.menu_id,
+                display_name: req.body.display_name || req.body.item_name,
+                three_word_alternative_name: req.body.short_name,
+                item_description: req.body.item_description || req.body.description,
+                twelve_word_description: req.body.twelve_word_description,
+                base_price: req.body.base_price,
+                portion_size: req.body.portion_size,
+                meal_type: req.body.meal_type || 'All Day',
+                item_type: req.body.item_type || 'Entree',
+                is_customizable: req.body.is_customizable || false,
+                nutrition_id: nutritionId
+            })
+            .select()
+            .single();
+            
+        if (menuItemError) throw menuItemError;
+        
+        res.status(201).json({
+            success: true,
+            menu_item_id: menuItem.menu_item_id,
+            message: 'Menu item created successfully',
+            data: menuItem
+        });
+    } catch (error) {
+        console.error('Error creating menu item:', error);
+        res.status(500).json({ error: 'Failed to create menu item', details: error.message });
+    }
 });
 
 // Update menu item
-app.put('/api/menu-items/:id', (req, res) => {
+app.put('/api/menu-items/:id', async (req, res) => {
     console.log(`✏️ PUT /api/menu-items/${req.params.id}`, req.body);
     
-    let updated = false;
-    
-    for (const restaurant of mockRestaurants) {
-        for (const menu of restaurant.menus) {
-            const itemIndex = menu.items.findIndex(i => i.menu_item_id === req.params.id);
-            if (itemIndex !== -1) {
-                // Update item fields
-                const item = menu.items[itemIndex];
-                if (req.body.display_name) item.item_name = req.body.display_name;
-                if (req.body.short_name) item.short_name = req.body.short_name;
-                if (req.body.item_description) item.description = req.body.item_description;
-                if (req.body.base_price) item.base_price = parseFloat(req.body.base_price);
-                if (req.body.portion_size) item.portion_size = req.body.portion_size;
-                if (req.body.meal_type) item.meal_type = req.body.meal_type;
-                
-                updated = true;
-                res.json({
-                    success: true,
-                    message: 'Menu item updated successfully',
-                    item: menu.items[itemIndex]
-                });
-                return;
+    if (!supabase) {
+        let updated = false;
+        for (const restaurant of mockRestaurants) {
+            for (const menu of restaurant.menus) {
+                const itemIndex = menu.items.findIndex(i => i.menu_item_id === req.params.id);
+                if (itemIndex !== -1) {
+                    const item = menu.items[itemIndex];
+                    if (req.body.display_name) item.item_name = req.body.display_name;
+                    if (req.body.short_name) item.short_name = req.body.short_name;
+                    if (req.body.item_description) item.description = req.body.item_description;
+                    if (req.body.base_price) item.base_price = parseFloat(req.body.base_price);
+                    if (req.body.portion_size) item.portion_size = req.body.portion_size;
+                    if (req.body.meal_type) item.meal_type = req.body.meal_type;
+                    
+                    updated = true;
+                    return res.json({
+                        success: true,
+                        message: 'Menu item updated successfully',
+                        item: menu.items[itemIndex]
+                    });
+                }
             }
+        }
+        if (!updated) {
+            return res.status(404).json({ error: 'Menu item not found' });
         }
     }
     
-    if (!updated) {
-        res.status(404).json({ error: 'Menu item not found' });
+    try {
+        const updateData = {};
+        if (req.body.display_name) updateData.display_name = req.body.display_name;
+        if (req.body.short_name) updateData.three_word_alternative_name = req.body.short_name;
+        if (req.body.item_description) updateData.item_description = req.body.item_description;
+        if (req.body.twelve_word_description) updateData.twelve_word_description = req.body.twelve_word_description;
+        if (req.body.base_price) updateData.base_price = req.body.base_price;
+        if (req.body.portion_size) updateData.portion_size = req.body.portion_size;
+        if (req.body.meal_type) updateData.meal_type = req.body.meal_type;
+        if (req.body.is_customizable !== undefined) updateData.is_customizable = req.body.is_customizable;
+        if (req.body.is_active !== undefined) updateData.is_active = req.body.is_active;
+        
+        updateData.updated_at = new Date().toISOString();
+        
+        const { data: menuItem, error } = await supabase
+            .from('menu_item')
+            .update(updateData)
+            .eq('menu_item_id', req.params.id)
+            .select()
+            .single();
+            
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return res.status(404).json({ error: 'Menu item not found' });
+            }
+            throw error;
+        }
+        
+        res.json({
+            success: true,
+            message: 'Menu item updated successfully',
+            item: menuItem
+        });
+    } catch (error) {
+        console.error('Error updating menu item:', error);
+        res.status(500).json({ error: 'Failed to update menu item', details: error.message });
     }
 });
 
 // Delete menu item
-app.delete('/api/menu-items/:id', (req, res) => {
+app.delete('/api/menu-items/:id', async (req, res) => {
     console.log(`🗑️ DELETE /api/menu-items/${req.params.id}`);
     
-    let deleted = false;
-    
-    for (const restaurant of mockRestaurants) {
-        for (const menu of restaurant.menus) {
-            const itemIndex = menu.items.findIndex(i => i.menu_item_id === req.params.id);
-            if (itemIndex !== -1) {
-                menu.items.splice(itemIndex, 1);
-                deleted = true;
-                res.json({
-                    success: true,
-                    message: 'Menu item deleted successfully'
-                });
-                return;
+    if (!supabase) {
+        let deleted = false;
+        for (const restaurant of mockRestaurants) {
+            for (const menu of restaurant.menus) {
+                const itemIndex = menu.items.findIndex(i => i.menu_item_id === req.params.id);
+                if (itemIndex !== -1) {
+                    menu.items.splice(itemIndex, 1);
+                    deleted = true;
+                    return res.json({
+                        success: true,
+                        message: 'Menu item deleted successfully'
+                    });
+                }
             }
+        }
+        if (!deleted) {
+            return res.status(404).json({ error: 'Menu item not found' });
         }
     }
     
-    if (!deleted) {
-        res.status(404).json({ error: 'Menu item not found' });
+    try {
+        // Soft delete by setting is_active to false
+        const { data: menuItem, error } = await supabase
+            .from('menu_item')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('menu_item_id', req.params.id)
+            .select()
+            .single();
+            
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return res.status(404).json({ error: 'Menu item not found' });
+            }
+            throw error;
+        }
+        
+        res.json({
+            success: true,
+            message: 'Menu item deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting menu item:', error);
+        res.status(500).json({ error: 'Failed to delete menu item', details: error.message });
+    }
+});
+
+// ========================================
+// Customization Options & Values Endpoints
+// ========================================
+
+// Get all customization options for a menu item
+app.get('/api/menu-items/:id/customizations', async (req, res) => {
+    console.log(`🎛️ GET /api/menu-items/${req.params.id}/customizations`);
+    
+    if (!supabase) {
+        return res.json([]);
+    }
+    
+    try {
+        const { data: customizations, error } = await supabase
+            .from('menu_item_customization')
+            .select(`
+                menu_item_id,
+                option_id,
+                is_required,
+                display_order,
+                option_type,
+                custom_option:custom_option(
+                    option_id,
+                    name,
+                    option_description,
+                    portion_instructions,
+                    is_active,
+                    option_values:option_value(
+                        value_id,
+                        value_name,
+                        default_portion,
+                        is_available,
+                        display_order,
+                        twelve_word_description,
+                        nutrition:nutrition(*)
+                    )
+                )
+            `)
+            .eq('menu_item_id', req.params.id)
+            .order('display_order');
+            
+        if (error) throw error;
+        
+        res.json(customizations || []);
+    } catch (error) {
+        console.error('Error fetching customizations:', error);
+        res.status(500).json({ error: 'Failed to fetch customizations', details: error.message });
+    }
+});
+
+// Get all option values for a customization option
+app.get('/api/custom-options/:id/values', async (req, res) => {
+    console.log(`🔧 GET /api/custom-options/${req.params.id}/values`);
+    
+    if (!supabase) {
+        return res.json([]);
+    }
+    
+    try {
+        const { data: values, error } = await supabase
+            .from('option_value')
+            .select(`
+                value_id,
+                value_name,
+                default_portion,
+                is_available,
+                available_from,
+                available_until,
+                display_order,
+                twelve_word_description,
+                image_generation_description,
+                nutrition:nutrition(*),
+                option_value_ingredients:option_value_ingredient(
+                    ingredient:ingredient(name, brand)
+                ),
+                option_value_allergens:option_value_allergen(
+                    allergen:allergen(name, allergen_description)
+                )
+            `)
+            .eq('option_id', req.params.id)
+            .eq('is_available', true)
+            .order('display_order');
+            
+        if (error) throw error;
+        
+        res.json(values || []);
+    } catch (error) {
+        console.error('Error fetching option values:', error);
+        res.status(500).json({ error: 'Failed to fetch option values', details: error.message });
+    }
+});
+
+// Create a new option value
+app.post('/api/custom-options/:id/values', async (req, res) => {
+    console.log(`➕ POST /api/custom-options/${req.params.id}/values`, req.body);
+    
+    if (!supabase) {
+        return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    
+    try {
+        const { data: value, error } = await supabase
+            .from('option_value')
+            .insert({
+                option_id: req.params.id,
+                value_name: req.body.value_name,
+                default_portion: req.body.default_portion,
+                is_available: req.body.is_available !== undefined ? req.body.is_available : true,
+                display_order: req.body.display_order || 0,
+                twelve_word_description: req.body.twelve_word_description,
+                nutrition_id: req.body.nutrition_id
+            })
+            .select()
+            .single();
+            
+        if (error) throw error;
+        
+        res.status(201).json({
+            success: true,
+            value_id: value.value_id,
+            message: 'Option value created successfully',
+            data: value
+        });
+    } catch (error) {
+        console.error('Error creating option value:', error);
+        res.status(500).json({ error: 'Failed to create option value', details: error.message });
+    }
+});
+
+// ========================================
+// Image Endpoints
+// ========================================
+
+// Get images for a menu item
+app.get('/api/menu-items/:id/images', async (req, res) => {
+    console.log(`🖼️ GET /api/menu-items/${req.params.id}/images`);
+    
+    if (!supabase) {
+        return res.json([]);
+    }
+    
+    try {
+        const { data: images, error } = await supabase
+            .from('menu_item_image')
+            .select(`
+                menu_item_id,
+                image_id,
+                is_generated,
+                is_verified,
+                display_order,
+                quality_rating,
+                image:image(
+                    image_id,
+                    image_url,
+                    type,
+                    alt_text,
+                    is_generated,
+                    is_verified,
+                    quality_rating
+                )
+            `)
+            .eq('menu_item_id', req.params.id)
+            .order('display_order');
+            
+        if (error) throw error;
+        
+        res.json(images || []);
+    } catch (error) {
+        console.error('Error fetching menu item images:', error);
+        res.status(500).json({ error: 'Failed to fetch images', details: error.message });
+    }
+});
+
+// Get images for a restaurant
+app.get('/api/restaurants/:id/images', async (req, res) => {
+    console.log(`🖼️ GET /api/restaurants/${req.params.id}/images`);
+    
+    if (!supabase) {
+        return res.json([]);
+    }
+    
+    try {
+        const { data: images, error } = await supabase
+            .from('restaurant_image')
+            .select(`
+                restaurant_id,
+                image_id,
+                is_exterior,
+                is_interior,
+                is_logo,
+                is_restaurant_entrance,
+                image:image(
+                    image_id,
+                    image_url,
+                    type,
+                    alt_text,
+                    is_verified,
+                    quality_rating
+                )
+            `)
+            .eq('restaurant_id', req.params.id);
+            
+        if (error) throw error;
+        
+        res.json(images || []);
+    } catch (error) {
+        console.error('Error fetching restaurant images:', error);
+        res.status(500).json({ error: 'Failed to fetch images', details: error.message });
+    }
+});
+
+// Add image to menu item
+app.post('/api/menu-items/:id/images', async (req, res) => {
+    console.log(`➕ POST /api/menu-items/${req.params.id}/images`, req.body);
+    
+    if (!supabase) {
+        return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    
+    try {
+        // First create the image record
+        const { data: image, error: imageError } = await supabase
+            .from('image')
+            .insert({
+                image_url: req.body.image_url,
+                type: req.body.type || 'food',
+                alt_text: req.body.alt_text,
+                is_generated: req.body.is_generated || false,
+                is_food: true,
+                quality_rating: req.body.quality_rating,
+                is_verified: req.body.is_verified || false
+            })
+            .select()
+            .single();
+            
+        if (imageError) throw imageError;
+        
+        // Link the image to the menu item
+        const { data: menuItemImage, error: linkError } = await supabase
+            .from('menu_item_image')
+            .insert({
+                menu_item_id: req.params.id,
+                image_id: image.image_id,
+                is_generated: req.body.is_generated || false,
+                is_verified: req.body.is_verified || false,
+                display_order: req.body.display_order || 0,
+                quality_rating: req.body.quality_rating
+            })
+            .select()
+            .single();
+            
+        if (linkError) throw linkError;
+        
+        res.status(201).json({
+            success: true,
+            image_id: image.image_id,
+            message: 'Image added successfully',
+            data: { image, menuItemImage }
+        });
+    } catch (error) {
+        console.error('Error adding image:', error);
+        res.status(500).json({ error: 'Failed to add image', details: error.message });
     }
 });
 
@@ -868,16 +1378,27 @@ if (process.env.NODE_ENV !== 'production') {
             sum + r.menus.reduce((menuSum, m) => menuSum + m.items.length, 0), 0
         )}`);
         console.log('\n📡 API Endpoints:');
-        console.log('   GET  /api/all-restaurant-menus');
-        console.log('   GET  /api/restaurants/:id');
-        console.log('   GET  /api/menu-items/:id/nutrition');
-        console.log('   POST /api/menu-items');
-        console.log('   PUT  /api/menu-items/:id');
-        console.log('   DELETE /api/menu-items/:id');
-        console.log('   GET  /api/search?q=query&dietary=tag');
-        console.log('   GET  /api/stats');
-        console.log('   GET  /api/health');
-        console.log('\n🌐 Frontend: http://localhost:' + PORT);
+        console.log('\n   🏪 Restaurants:');
+        console.log('      GET  /api/all-restaurant-menus');
+        console.log('      GET  /api/restaurants/:id');
+        console.log('      GET  /api/restaurants/:id/images');
+        console.log('\n   🍽️  Menu Items:');
+        console.log('      GET  /api/menu-items/:id/nutrition');
+        console.log('      GET  /api/menu-items/:id/images');
+        console.log('      GET  /api/menu-items/:id/customizations');
+        console.log('      POST /api/menu-items');
+        console.log('      POST /api/menu-items/:id/images');
+        console.log('      PUT  /api/menu-items/:id');
+        console.log('      DELETE /api/menu-items/:id');
+        console.log('\n   🎛️  Customizations:');
+        console.log('      GET  /api/custom-options/:id/values');
+        console.log('      POST /api/custom-options/:id/values');
+        console.log('\n   🔍 Search & Stats:');
+        console.log('      GET  /api/search?q=query&dietary=tag');
+        console.log('      GET  /api/stats');
+        console.log('      GET  /api/health');
+        console.log('\n🗄️  Database: ' + (supabase ? 'Supabase ✅' : 'Mock Data (offline)'));
+        console.log('🌐 Frontend: http://localhost:' + PORT);
         console.log('================================\n');
     });
 }

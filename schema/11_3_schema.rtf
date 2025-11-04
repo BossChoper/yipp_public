@@ -1,0 +1,521 @@
+-- WARNING: This schema is for context only and is not meant to be run.\
+-- Table order and constraints may not be valid for execution.\
+\
+CREATE TABLE public.address (\
+  address_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  street_address character varying,\
+  city text,\
+  state character varying,\
+  zipcode integer,\
+  CONSTRAINT address_pkey PRIMARY KEY (address_id)\
+);\
+CREATE TABLE public.allergen (\
+  allergen_id integer NOT NULL DEFAULT nextval('allergens_allergen_id_seq'::regclass),\
+  name character varying NOT NULL UNIQUE,\
+  allergen_description text,\
+  is_active boolean DEFAULT true,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT allergen_pkey PRIMARY KEY (allergen_id)\
+);\
+CREATE TABLE public.category (\
+  category_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  name text,\
+  CONSTRAINT category_pkey PRIMARY KEY (category_id)\
+);\
+CREATE TABLE public.custom_option (\
+  option_id integer NOT NULL DEFAULT nextval('custom_options_option_id_seq'::regclass),\
+  name text NOT NULL,\
+  option_description text,\
+  is_active boolean DEFAULT true,\
+  display_order integer DEFAULT 0,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  portion_instructions text,\
+  CONSTRAINT custom_option_pkey PRIMARY KEY (option_id)\
+);\
+CREATE TABLE public.custom_portion (\
+  option_id bigint NOT NULL,\
+  portion_id bigint NOT NULL,\
+  restaurant_id character varying,\
+  CONSTRAINT custom_portion_pkey PRIMARY KEY (option_id, portion_id),\
+  CONSTRAINT custom_portions_portion_id_fkey FOREIGN KEY (portion_id) REFERENCES public.portion(portion_id),\
+  CONSTRAINT custom_portions_option_id_fkey FOREIGN KEY (option_id) REFERENCES public.custom_option(option_id)\
+);\
+CREATE TABLE public.diet (\
+  diet_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  diet_name text,\
+  description text,\
+  CONSTRAINT diet_pkey PRIMARY KEY (diet_id)\
+);\
+CREATE TABLE public.image (\
+  image_id integer NOT NULL DEFAULT nextval('images_image_id_seq'::regclass) UNIQUE,\
+  image_url character varying NOT NULL,\
+  type USER-DEFINED NOT NULL,\
+  alt_text character varying,\
+  is_generated boolean DEFAULT false,\
+  is_restaurant boolean DEFAULT false,\
+  is_food boolean DEFAULT false,\
+  quality_rating integer CHECK (quality_rating >= 1 AND quality_rating <= 5),\
+  is_active boolean DEFAULT true,\
+  display_order integer DEFAULT 0,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  is_stored_local boolean DEFAULT false,\
+  is_verified boolean,\
+  CONSTRAINT image_pkey PRIMARY KEY (image_id)\
+);\
+CREATE TABLE public.image_source (\
+  image_id integer NOT NULL,\
+  source_id bigint NOT NULL,\
+  CONSTRAINT image_source_pkey PRIMARY KEY (image_id, source_id),\
+  CONSTRAINT image_source_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.image(image_id),\
+  CONSTRAINT image_source_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.source(source_id)\
+);\
+CREATE TABLE public.ingredient (\
+  ingredient_id integer NOT NULL DEFAULT nextval('ingredients_ingredient_id_seq'::regclass),\
+  name character varying NOT NULL,\
+  brand character varying,\
+  possible_allergens text,\
+  tag_traits text,\
+  is_active boolean DEFAULT true,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  common_atomic_ingredients text,\
+  contains_poultry boolean DEFAULT false,\
+  contains_meat boolean DEFAULT false,\
+  contains_dairy boolean DEFAULT false,\
+  contains_gluten boolean,\
+  contains_honey boolean,\
+  contains_egg boolean,\
+  contains_animal_product boolean,\
+  contains_tree_nut boolean,\
+  contains_fish boolean,\
+  contains_shellfish boolean,\
+  contains_oil boolean DEFAULT false,\
+  is_composite boolean DEFAULT false,\
+  CONSTRAINT ingredient_pkey PRIMARY KEY (ingredient_id)\
+);\
+CREATE TABLE public.ingredient_allergen (\
+  ingredient_id integer NOT NULL,\
+  allergen_id integer NOT NULL,\
+  notes text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT ingredient_allergen_pkey PRIMARY KEY (ingredient_id, allergen_id),\
+  CONSTRAINT ingredient_allergens_ingredient_id_fkey FOREIGN KEY (ingredient_id) REFERENCES public.ingredient(ingredient_id),\
+  CONSTRAINT ingredient_allergens_allergen_id_fkey FOREIGN KEY (allergen_id) REFERENCES public.allergen(allergen_id)\
+);\
+CREATE TABLE public.language (\
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  name text NOT NULL,\
+  CONSTRAINT language_pkey PRIMARY KEY (id)\
+);\
+CREATE TABLE public.location (\
+  location_id bigint NOT NULL,\
+  latitude double precision,\
+  longitude double precision,\
+  address_id bigint,\
+  CONSTRAINT location_pkey PRIMARY KEY (location_id),\
+  CONSTRAINT locations_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.address(address_id)\
+);\
+CREATE TABLE public.menu (\
+  menu_name character varying,\
+  is_active boolean DEFAULT true,\
+  effective_date date,\
+  expiry_date date,\
+  menu_version integer DEFAULT 1,\
+  menu_type USER-DEFINED DEFAULT 'Static'::menu_type_enum,\
+  created_at timestamp with time zone NOT NULL DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  restaurant_id bigint NOT NULL,\
+  menu_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  restaurant_code text,\
+  CONSTRAINT menu_pkey PRIMARY KEY (menu_id),\
+  CONSTRAINT menu_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurant(restaurant_id)\
+);\
+CREATE TABLE public.menu_category (\
+  category_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  menu_id text NOT NULL,\
+  display_order integer,\
+  CONSTRAINT menu_category_pkey PRIMARY KEY (category_id, menu_id),\
+  CONSTRAINT menu_categories_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.category(category_id)\
+);\
+CREATE TABLE public.menu_duplicate (\
+  restaurant_id character varying NOT NULL,\
+  menu_name character varying,\
+  is_active boolean DEFAULT true,\
+  effective_date date,\
+  expiry_date date,\
+  menu_version integer DEFAULT 1,\
+  menu_type USER-DEFINED DEFAULT 'Static'::menu_type_enum,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  menu_id bigint NOT NULL,\
+  CONSTRAINT menu_duplicate_pkey PRIMARY KEY (restaurant_id, menu_id)\
+);\
+CREATE TABLE public.menu_image (\
+  menu_id text NOT NULL,\
+  image_id integer NOT NULL,\
+  menu_notes text,\
+  source_id bigint,\
+  CONSTRAINT menu_image_pkey PRIMARY KEY (menu_id, image_id),\
+  CONSTRAINT menu_images_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.source(source_id),\
+  CONSTRAINT menu_images_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.image(image_id)\
+);\
+CREATE TABLE public.menu_item (\
+  display_name text NOT NULL,\
+  three_word_alternative_name text,\
+  item_description text,\
+  portion_size character varying,\
+  serving_size integer CHECK (serving_size > 0),\
+  item_type USER-DEFINED NOT NULL,\
+  base_price numeric CHECK (base_price >= 0::numeric),\
+  is_customizable boolean DEFAULT false,\
+  is_verified boolean DEFAULT false,\
+  is_active boolean DEFAULT true,\
+  availability USER-DEFINED DEFAULT 'Available'::availability_enum,\
+  meal_type USER-DEFINED DEFAULT 'All Day'::meal_type_enum,\
+  is_market_price boolean DEFAULT false,\
+  available_from timestamp with time zone,\
+  available_until timestamp with time zone,\
+  six_word_description text,\
+  twelve_word_description text,\
+  image_generation_characteristics text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  is_generated_item boolean DEFAULT false,\
+  nutrition_id integer,\
+  note text,\
+  menu_item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  menu_id bigint,\
+  CONSTRAINT menu_item_pkey PRIMARY KEY (menu_item_id),\
+  CONSTRAINT menu_item_menu_id_fkey FOREIGN KEY (menu_id) REFERENCES public.menu(menu_id),\
+  CONSTRAINT menu_items_nutrition_id_fkey FOREIGN KEY (nutrition_id) REFERENCES public.nutrition(nutrition_id)\
+);\
+CREATE TABLE public.menu_item_allergen (\
+  menu_item_id bigint NOT NULL,\
+  allergen_id integer NOT NULL,\
+  is_verified boolean DEFAULT false,\
+  CONSTRAINT menu_item_allergen_pkey PRIMARY KEY (menu_item_id, allergen_id),\
+  CONSTRAINT menu_item_allergen_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id),\
+  CONSTRAINT menu_item_allergens_allergen_id_fkey FOREIGN KEY (allergen_id) REFERENCES public.allergen(allergen_id)\
+);\
+CREATE TABLE public.menu_item_category (\
+  menu_item_id bigint NOT NULL,\
+  category_id bigint NOT NULL,\
+  display_order integer,\
+  CONSTRAINT menu_item_category_pkey PRIMARY KEY (menu_item_id),\
+  CONSTRAINT menu_item_categories_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.category(category_id)\
+);\
+CREATE TABLE public.menu_item_customization (\
+  menu_item_id bigint NOT NULL,\
+  option_id integer NOT NULL,\
+  is_required boolean DEFAULT false,\
+  display_order integer DEFAULT 0,\
+  option_type text DEFAULT 'Single'::text,\
+  CONSTRAINT menu_item_customization_pkey PRIMARY KEY (option_id),\
+  CONSTRAINT menu_item_customizations_option_id_fkey FOREIGN KEY (option_id) REFERENCES public.custom_option(option_id),\
+  CONSTRAINT menu_item_customization_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id)\
+);\
+CREATE TABLE public.menu_item_diet (\
+  menu_item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  diet_id bigint NOT NULL,\
+  CONSTRAINT menu_item_diet_pkey PRIMARY KEY (menu_item_id, diet_id),\
+  CONSTRAINT menu_item_diet_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id),\
+  CONSTRAINT menu_item_diet_diet_id_fkey FOREIGN KEY (diet_id) REFERENCES public.diet(diet_id)\
+);\
+CREATE TABLE public.menu_item_duplicate (\
+  menu_item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  display_name text NOT NULL,\
+  three_word_alternative_name text,\
+  item_description text,\
+  portion_size character varying,\
+  serving_size integer CHECK (serving_size > 0),\
+  item_type USER-DEFINED NOT NULL,\
+  base_price numeric CHECK (base_price >= 0::numeric),\
+  is_customizable boolean DEFAULT false,\
+  is_verified boolean DEFAULT false,\
+  is_active boolean DEFAULT true,\
+  availability USER-DEFINED DEFAULT 'Available'::availability_enum,\
+  meal_type USER-DEFINED DEFAULT 'All Day'::meal_type_enum,\
+  is_market_price boolean DEFAULT false,\
+  available_from timestamp with time zone,\
+  available_until timestamp with time zone,\
+  six_word_description text,\
+  twelve_word_description text,\
+  image_generation_characteristics text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  is_generated_item boolean DEFAULT false,\
+  nutrition_id integer,\
+  note text,\
+  menu_id bigint NOT NULL,\
+  restaurant_id character varying NOT NULL,\
+  CONSTRAINT menu_item_duplicate_pkey PRIMARY KEY (menu_item_id, menu_id, restaurant_id),\
+  CONSTRAINT menu_item_duplicate_nutrition_id_fkey FOREIGN KEY (nutrition_id) REFERENCES public.nutrition(nutrition_id)\
+);\
+CREATE TABLE public.menu_item_image (\
+  menu_item_id bigint NOT NULL,\
+  image_id integer NOT NULL,\
+  is_generated boolean DEFAULT false,\
+  is_verified boolean DEFAULT false,\
+  display_order integer DEFAULT 0,\
+  quality_rating integer,\
+  CONSTRAINT menu_item_image_pkey PRIMARY KEY (image_id, menu_item_id),\
+  CONSTRAINT menu_item_image_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id),\
+  CONSTRAINT menu_item_images_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.image(image_id)\
+);\
+CREATE TABLE public.menu_item_ingredient (\
+  menu_item_id bigint NOT NULL,\
+  ingredient_id integer NOT NULL,\
+  is_optional boolean DEFAULT false,\
+  display_order integer DEFAULT 0,\
+  atomic_ingredients_list text,\
+  CONSTRAINT menu_item_ingredient_pkey PRIMARY KEY (ingredient_id, menu_item_id),\
+  CONSTRAINT menu_item_ingredient_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id),\
+  CONSTRAINT menu_item_ingredients_ingredient_id_fkey FOREIGN KEY (ingredient_id) REFERENCES public.ingredient(ingredient_id)\
+);\
+CREATE TABLE public.menu_item_portion (\
+  menu_item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  portion_id bigint NOT NULL,\
+  price_diff real,\
+  CONSTRAINT menu_item_portion_pkey PRIMARY KEY (menu_item_id, portion_id),\
+  CONSTRAINT menu_item_portion_portion_id_fkey FOREIGN KEY (portion_id) REFERENCES public.portion(portion_id),\
+  CONSTRAINT menu_item_portion_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id)\
+);\
+CREATE TABLE public.menu_item_tag (\
+  menu_item_id bigint NOT NULL,\
+  tag_id integer NOT NULL,\
+  assigned_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT menu_item_tag_pkey PRIMARY KEY (tag_id, menu_item_id),\
+  CONSTRAINT menu_item_tag_menu_item_id_fkey FOREIGN KEY (menu_item_id) REFERENCES public.menu_item(menu_item_id),\
+  CONSTRAINT menu_item_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tag(tag_id)\
+);\
+CREATE TABLE public.menu_option_value (\
+  menu_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  value_id integer NOT NULL,\
+  price real,\
+  CONSTRAINT menu_option_value_pkey PRIMARY KEY (menu_id, value_id),\
+  CONSTRAINT menu_option_value_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id),\
+  CONSTRAINT menu_option_value_menu_id_fkey FOREIGN KEY (menu_id) REFERENCES public.menu(menu_id)\
+);\
+CREATE TABLE public.menu_source (\
+  menu_id text NOT NULL,\
+  source_id bigint NOT NULL,\
+  is_verified boolean,\
+  CONSTRAINT menu_source_pkey PRIMARY KEY (menu_id, source_id),\
+  CONSTRAINT menu_source_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.source(source_id)\
+);\
+CREATE TABLE public.note (\
+  note_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  text text,\
+  CONSTRAINT note_pkey PRIMARY KEY (note_id)\
+);\
+CREATE TABLE public.nutrition (\
+  nutrition_id integer NOT NULL DEFAULT nextval('nutrition_nutrition_id_seq'::regclass),\
+  calories integer CHECK (calories >= 0),\
+  protein_grams numeric CHECK (protein_grams >= 0::numeric),\
+  fat_grams numeric CHECK (fat_grams >= 0::numeric),\
+  saturated_fat_grams numeric CHECK (saturated_fat_grams >= 0::numeric),\
+  carbohydrates_grams numeric CHECK (carbohydrates_grams >= 0::numeric),\
+  sugar_grams numeric CHECK (sugar_grams >= 0::numeric),\
+  fiber_grams numeric CHECK (fiber_grams >= 0::numeric),\
+  sodium_mg integer CHECK (sodium_mg >= 0),\
+  cholesterol_mg integer CHECK (cholesterol_mg >= 0),\
+  vitamin_details text,\
+  is_verified boolean DEFAULT false,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  nutrition_label text,\
+  CONSTRAINT nutrition_pkey PRIMARY KEY (nutrition_id)\
+);\
+CREATE TABLE public.option_value (\
+  value_id integer NOT NULL DEFAULT nextval('option_values_value_id_seq'::regclass),\
+  option_id integer NOT NULL,\
+  value_name character varying NOT NULL,\
+  default_portion character varying,\
+  is_commercial_product boolean DEFAULT false,\
+  is_available boolean DEFAULT true,\
+  available_from timestamp with time zone,\
+  available_until timestamp with time zone,\
+  display_order integer DEFAULT 0,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  generated_ingredient_list text,\
+  nutrition_id integer,\
+  twelve_word_description text,\
+  image_generation_description text,\
+  CONSTRAINT option_value_pkey PRIMARY KEY (value_id),\
+  CONSTRAINT option_values_nutrition_id_fkey FOREIGN KEY (nutrition_id) REFERENCES public.nutrition(nutrition_id),\
+  CONSTRAINT option_values_option_id_fkey FOREIGN KEY (option_id) REFERENCES public.custom_option(option_id)\
+);\
+CREATE TABLE public.option_value_allergen (\
+  value_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  allergen_id integer,\
+  CONSTRAINT option_value_allergen_pkey PRIMARY KEY (value_id),\
+  CONSTRAINT option_value_allergens_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id),\
+  CONSTRAINT option_value_allergens_allergen_id_fkey FOREIGN KEY (allergen_id) REFERENCES public.allergen(allergen_id),\
+  CONSTRAINT option_value_allergens_value_id_fkey1 FOREIGN KEY (value_id) REFERENCES public.option_value(value_id)\
+);\
+CREATE TABLE public.option_value_category (\
+  value_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  category_id bigint,\
+  CONSTRAINT option_value_category_pkey PRIMARY KEY (value_id),\
+  CONSTRAINT option_value_category_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.category(category_id),\
+  CONSTRAINT option_value_category_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id)\
+);\
+CREATE TABLE public.option_value_diet (\
+  diet_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  value_id integer NOT NULL,\
+  CONSTRAINT option_value_diet_pkey PRIMARY KEY (diet_id, value_id),\
+  CONSTRAINT option_value_diet_diet_id_fkey FOREIGN KEY (diet_id) REFERENCES public.diet(diet_id),\
+  CONSTRAINT option_value_diet_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id)\
+);\
+CREATE TABLE public.option_value_image (\
+  image_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  value_id integer NOT NULL,\
+  CONSTRAINT option_value_image_pkey PRIMARY KEY (image_id, value_id),\
+  CONSTRAINT option_value_image_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.image(image_id),\
+  CONSTRAINT option_value_image_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id)\
+);\
+CREATE TABLE public.option_value_ingredient (\
+  ingredient_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  value_id integer,\
+  CONSTRAINT option_value_ingredient_pkey PRIMARY KEY (ingredient_id),\
+  CONSTRAINT option_value_ingredients_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id),\
+  CONSTRAINT option_value_ingredients_ingredient_id_fkey FOREIGN KEY (ingredient_id) REFERENCES public.ingredient(ingredient_id)\
+);\
+CREATE TABLE public.option_value_portion (\
+  portion_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  value_id integer,\
+  additional_price real,\
+  CONSTRAINT option_value_portion_pkey PRIMARY KEY (portion_id),\
+  CONSTRAINT option_value_portion_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id),\
+  CONSTRAINT option_value_portion_portion_id_fkey FOREIGN KEY (portion_id) REFERENCES public.portion(portion_id)\
+);\
+CREATE TABLE public.portion (\
+  portion_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  portion_type text NOT NULL DEFAULT 'single'::text,\
+  nutrition_multiplier real,\
+  CONSTRAINT portion_pkey PRIMARY KEY (portion_id)\
+);\
+CREATE TABLE public.restaurant (\
+  name text NOT NULL,\
+  description text,\
+  phone character varying,\
+  website character varying,\
+  is_chain boolean DEFAULT false,\
+  restaurant_group character varying,\
+  pricing_model USER-DEFINED DEFAULT 'Per Item'::pricing_model_enum,\
+  average_price numeric CHECK (average_price >= 0::numeric),\
+  pricing_notes text,\
+  status USER-DEFINED DEFAULT 'Open'::status_enum,\
+  dining_status USER-DEFINED DEFAULT 'Both'::dining_status_enum,\
+  is_verified boolean DEFAULT false,\
+  is_active boolean DEFAULT true,\
+  diet_friendly_rating USER-DEFINED,\
+  operational_alerts text,\
+  is_age_restricted boolean,\
+  is_mobile boolean DEFAULT false,\
+  twelve_word_description text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  six_word_description text,\
+  restaurant_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  CONSTRAINT restaurant_pkey PRIMARY KEY (restaurant_id)\
+);\
+CREATE TABLE public.restaurant_image (\
+  restaurant_id character varying,\
+  image_id integer,\
+  is_exterior boolean,\
+  is_interior boolean,\
+  is_logo boolean,\
+  is_restaurant_entrance boolean,\
+  CONSTRAINT restaurant_images_image_id_fkey FOREIGN KEY (image_id) REFERENCES public.image(image_id)\
+);\
+CREATE TABLE public.restaurant_item (\
+  menu_item_id character varying,\
+  value_id integer,\
+  ingredient_id integer,\
+  restaurant_id character varying NOT NULL,\
+  CONSTRAINT restaurant_item_value_id_fkey FOREIGN KEY (value_id) REFERENCES public.option_value(value_id),\
+  CONSTRAINT restaurant_item_ingredient_id_fkey FOREIGN KEY (ingredient_id) REFERENCES public.ingredient(ingredient_id)\
+);\
+CREATE TABLE public.restaurant_language (\
+  restaurant_id character varying NOT NULL,\
+  language_id bigint NOT NULL,\
+  CONSTRAINT restaurant_language_pkey PRIMARY KEY (restaurant_id, language_id),\
+  CONSTRAINT restaurant_language_language_id_fkey FOREIGN KEY (language_id) REFERENCES public.language(id)\
+);\
+CREATE TABLE public.restaurant_location (\
+  location_id integer NOT NULL,\
+  restaurant_id character varying NOT NULL,\
+  is_current_location boolean DEFAULT true,\
+  is_active boolean DEFAULT true,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  phone integer,\
+  time_id bigint,\
+  CONSTRAINT restaurant_location_pkey PRIMARY KEY (location_id, restaurant_id),\
+  CONSTRAINT restaurant_location_time_id_fkey FOREIGN KEY (time_id) REFERENCES public.time(time_id),\
+  CONSTRAINT restaurant_addresses_address_id_fkey FOREIGN KEY (location_id) REFERENCES public.address(address_id)\
+);\
+CREATE TABLE public.restaurant_tag (\
+  restaurant_id character varying NOT NULL,\
+  tag_id integer NOT NULL,\
+  assigned_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT restaurant_tag_pkey PRIMARY KEY (restaurant_id, tag_id),\
+  CONSTRAINT restaurant_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tag(tag_id)\
+);\
+CREATE TABLE public.source (\
+  source_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL UNIQUE,\
+  source_type character varying,\
+  source_link character varying NOT NULL,\
+  is_verified boolean DEFAULT false,\
+  created_at timestamp without time zone,\
+  notes text,\
+  is_menu_image boolean,\
+  is_menu_item boolean,\
+  is_restaurant_published boolean,\
+  is_menu_building_source boolean\
+);\
+CREATE TABLE public.staging_table (\
+  restaurant_id character varying NOT NULL,\
+  menu_item_id character varying,\
+  item_id character varying NOT NULL,\
+  ingredient_id integer NOT NULL,\
+  ingredient_listing text,\
+  CONSTRAINT staging_table_pkey PRIMARY KEY (item_id, ingredient_id),\
+  CONSTRAINT menu_to_ingredient_ingredient_id_fkey FOREIGN KEY (ingredient_id) REFERENCES public.ingredient(ingredient_id)\
+);\
+CREATE TABLE public.tag (\
+  tag_id integer NOT NULL DEFAULT nextval('tags_tag_id_seq'::regclass),\
+  tag_text character varying NOT NULL UNIQUE,\
+  tag_type USER-DEFINED NOT NULL,\
+  tag_description text,\
+  is_active boolean DEFAULT true,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT tag_pkey PRIMARY KEY (tag_id)\
+);\
+CREATE TABLE public.tag_synonym (\
+  synonym_id integer NOT NULL DEFAULT nextval('tag_synonyms_synonym_id_seq'::regclass),\
+  tag_id integer NOT NULL,\
+  synonym_text character varying NOT NULL,\
+  is_active boolean DEFAULT true,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT tag_synonym_pkey PRIMARY KEY (synonym_id),\
+  CONSTRAINT tag_synonyms_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tag(tag_id)\
+);\
+CREATE TABLE public.time (\
+  time_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  day_of_week text,\
+  open_time time without time zone,\
+  close_time time without time zone,\
+  is_closed boolean,\
+  is_24_hour boolean,\
+  special_note text,\
+  created_at timestamp without time zone,\
+  updated_at timestamp without time zone,\
+  CONSTRAINT time_pkey PRIMARY KEY (time_id)\
+);

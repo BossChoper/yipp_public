@@ -5,10 +5,11 @@
   "main": "mock-server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node mock-server.js",
-    "mock": "node mock-server.js",
-    "dev": "node mock-server.js",
-    "vercel-build": "echo 'Building for Vercel...'"
+    "start": "node mock-server.cjs",
+    "mock": "node mock-server.cjs",
+    "dev": "node mock-server.cjs",
+    "vercel-build": "echo 'Building for Vercel...'",
+    "health": "curl http://localhost:3000/api/health || echo 'Server not running. Start with: npm start'"
   },
   "keywords": [],
   "author": "",
