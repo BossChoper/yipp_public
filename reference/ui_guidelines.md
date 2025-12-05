@@ -1,6 +1,6 @@
 UI/UX Guidelines
 Tag Display:
-Display up to 3 tags per menu item; additional tags (>3) are hidden under a circular "+" button that expands on click to show all tags.
+Display up to 3 tags per menu item; additional tags (>3) are hidden under a circular "+" button that expands on click to show all tags. Tags are clickable and filter other items with same tag when clicked.
 Item Expansion:
 Each menu item includes an expandable section containing an image carousel, long description, ingredients list, and nutritional information. Expand to include dynamic updates: When ingredients are edited in the Nutrition modal, update the description and nutrition in real-time via Nutritionix API integration.
 Option Values:

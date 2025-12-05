@@ -1,6 +1,7 @@
 /**
  * Yippee App - Main JavaScript
  * Implements UI/UX Guidelines
+ * Schema Version: 12_2 aligned
  */
 
 // Configuration
@@ -9,6 +10,32 @@ const CONFIG = {
     MAX_VISIBLE_TAGS: 3,
     POSTS_PER_PAGE: 10,
 };
+
+// Helper to normalize restaurant data from API (handles both mock and Supabase formats)
+function normalizeRestaurant(restaurant) {
+    return {
+        ...restaurant,
+        restaurant_id: restaurant.restaurant_id,
+        restaurant_name: restaurant.name || restaurant.restaurant_name,
+        description: restaurant.description || restaurant.twelve_word_description,
+        menus: (restaurant.menus || []).map(menu => ({
+            ...menu,
+            menu_id: menu.menu_id,
+            menu_name: menu.menu_name,
+            items: (menu.menu_items || menu.items || []).map(item => ({
+                ...item,
+                menu_item_id: item.menu_item_id,
+                item_name: item.display_name || item.item_name,
+                short_name: item.three_word_short_name || item.short_name,
+                description: item.item_description || item.description || item.fifty_char_description,
+                long_description: item.hundred_char_description || item.long_description,
+                base_price: item.current_price || item.base_price || 0,
+                tags: item.diets || item.tags || [],
+                nutrition: item.nutrition || {}
+            }))
+        }))
+    };
+}
 
 // Global State
 const state = {
@@ -151,10 +178,13 @@ async function loadRestaurants() {
     try {
         const response = await fetch(`${CONFIG.API_BASE}/all-restaurant-menus`);
         if (response.ok) {
-            state.restaurants = await response.json();
+            const rawData = await response.json();
+            // Normalize data to handle both mock and Supabase schema formats
+            state.restaurants = rawData.map(normalizeRestaurant);
             renderRestaurantList();
             renderMapView();
             console.log(`✅ Loaded ${state.restaurants.length} restaurants`);
+            console.log('📊 Sample restaurant:', state.restaurants[0]);
         }
     } catch (error) {
         console.error('Error loading restaurants:', error);
@@ -179,11 +209,54 @@ async function loadMenuItemNutrition(menuItemId) {
     try {
         const response = await fetch(`${CONFIG.API_BASE}/menu-items/${menuItemId}/nutrition`);
         if (response.ok) {
-            const nutrition = await response.json();
-            return nutrition;
+            const data = await response.json();
+            // Handle new schema format where nutrition is nested
+            return data.nutrition || data;
         }
     } catch (error) {
         console.error('Error loading nutrition:', error);
+        return null;
+    }
+}
+
+// Load full menu item details using new endpoint
+async function loadMenuItemDetails(menuItemId) {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${menuItemId}`);
+        if (response.ok) {
+            const result = await response.json();
+            return result.data || result;
+        }
+    } catch (error) {
+        console.error('Error loading menu item details:', error);
+        return null;
+    }
+}
+
+// Load customization options for a menu item
+async function loadMenuItemCustomizations(menuItemId) {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${menuItemId}/customizations`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (error) {
+        console.error('Error loading customizations:', error);
+        return [];
+    }
+}
+
+// Configure menu item with selected options
+async function configureMenuItem(menuItemId, optionValueIds) {
+    try {
+        const optionsParam = optionValueIds.join(',');
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${menuItemId}/configure?options=${optionsParam}`);
+        if (response.ok) {
+            const result = await response.json();
+            return result.data || result;
+        }
+    } catch (error) {
+        console.error('Error configuring menu item:', error);
         return null;
     }
 }
@@ -200,6 +273,10 @@ function handleGlobalSearch(event) {
         return;
     }
     
+    // Also use the backend search endpoint for better results
+    searchMenuItems(query);
+    
+    // Local filter as fallback
     const filtered = state.restaurants.filter(restaurant => {
         const nameMatch = restaurant.restaurant_name?.toLowerCase().includes(query);
         const menuMatch = restaurant.menus?.some(menu => 
@@ -212,6 +289,19 @@ function handleGlobalSearch(event) {
     });
     
     renderRestaurantList(filtered);
+}
+
+// Use backend search endpoint
+async function searchMenuItems(query) {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/search?query=${encodeURIComponent(query)}`);
+        if (response.ok) {
+            const result = await response.json();
+            console.log(`🔍 Search results: ${result.count} items found`);
+        }
+    } catch (error) {
+        console.log('Backend search not available, using local filter');
+    }
 }
 
 function handleSearchClick() {
@@ -704,96 +794,208 @@ function toggleExpandedItem(itemId) {
 // Modals
 // ========================================
 
-function showNutritionModal(itemId) {
+async function showNutritionModal(itemId) {
     const modal = document.getElementById('nutritionModal');
-    
-    // Mock ingredients and nutrition
     const ingredientsList = document.getElementById('ingredientsList');
-    ingredientsList.innerHTML = `
-        <label class="ingredient-item">
-            <input type="checkbox" checked onchange="updateNutrition()"> Lettuce
-        </label>
-        <label class="ingredient-item">
-            <input type="checkbox" checked onchange="updateNutrition()"> Tomato
-        </label>
-        <label class="ingredient-item">
-            <input type="checkbox" checked onchange="updateNutrition()"> Cheese
-        </label>
-        <label class="ingredient-item">
-            <input type="checkbox" checked onchange="updateNutrition()"> Bread
-        </label>
-        <label class="ingredient-item">
-            <input type="checkbox" checked onchange="updateNutrition()"> Sauce
-        </label>
-    `;
-    
     const nutritionStats = document.getElementById('nutritionStats');
-    nutritionStats.innerHTML = `
-        <div class="nutrition-grid">
-            <div class="nutrition-item">
-                <strong>450</strong>
-                <span>Calories</span>
-            </div>
-            <div class="nutrition-item">
-                <strong>25g</strong>
-                <span>Protein</span>
-            </div>
-            <div class="nutrition-item">
-                <strong>15g</strong>
-                <span>Fat</span>
-            </div>
-            <div class="nutrition-item">
-                <strong>40g</strong>
-                <span>Carbs</span>
-            </div>
-            <div class="nutrition-item">
-                <strong>5g</strong>
-                <span>Fiber</span>
-            </div>
-            <div class="nutrition-item">
-                <strong>800mg</strong>
-                <span>Sodium</span>
-            </div>
-        </div>
-    `;
     
+    // Show loading state
+    ingredientsList.innerHTML = '<p>Loading ingredients...</p>';
+    nutritionStats.innerHTML = '<p>Loading nutrition data...</p>';
     modal.classList.add('active');
+    
+    try {
+        // Fetch real nutrition data from API
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${itemId}/nutrition`);
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const data = await response.json();
+        const nutrition = data.nutrition || data;
+        const ingredients = data.ingredients || [];
+        const allergens = data.allergens || [];
+        
+        // Render ingredients
+        if (ingredients.length > 0) {
+            ingredientsList.innerHTML = ingredients.map(ing => {
+                const name = typeof ing === 'string' ? ing : ing.name;
+                const isOptional = ing.is_optional || false;
+                return `
+                    <label class="ingredient-item">
+                        <input type="checkbox" checked onchange="updateNutrition()" data-ingredient="${name}">
+                        ${name}${isOptional ? ' (optional)' : ''}
+                        ${ing.is_vegan ? ' 🌱' : ''}
+                        ${ing.is_gluten_free ? ' 🌾✓' : ''}
+                    </label>
+                `;
+            }).join('');
+        } else {
+            ingredientsList.innerHTML = '<p class="empty-state">No ingredient data available</p>';
+        }
+        
+        // Render nutrition stats
+        if (nutrition) {
+            nutritionStats.innerHTML = `
+                <div class="nutrition-grid">
+                    <div class="nutrition-item">
+                        <strong>${nutrition.calories || 0}</strong>
+                        <span>Calories</span>
+                    </div>
+                    <div class="nutrition-item">
+                        <strong>${nutrition.protein_grams || 0}g</strong>
+                        <span>Protein</span>
+                    </div>
+                    <div class="nutrition-item">
+                        <strong>${nutrition.fat_grams || 0}g</strong>
+                        <span>Fat</span>
+                    </div>
+                    <div class="nutrition-item">
+                        <strong>${nutrition.carbohydrates_grams || 0}g</strong>
+                        <span>Carbs</span>
+                    </div>
+                    <div class="nutrition-item">
+                        <strong>${nutrition.fiber_grams || 0}g</strong>
+                        <span>Fiber</span>
+                    </div>
+                    <div class="nutrition-item">
+                        <strong>${nutrition.sodium_mg || 0}mg</strong>
+                        <span>Sodium</span>
+                    </div>
+                </div>
+                ${allergens.length > 0 ? `
+                    <div class="allergens-warning" style="margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border-radius: 8px;">
+                        <strong>⚠️ Allergens:</strong> ${allergens.map(a => a.name || a).join(', ')}
+                    </div>
+                ` : ''}
+                ${data.diets && data.diets.length > 0 ? `
+                    <div class="diets-info" style="margin-top: 0.5rem;">
+                        <strong>Suitable for:</strong> ${data.diets.join(', ')}
+                    </div>
+                ` : ''}
+            `;
+        } else {
+            nutritionStats.innerHTML = '<p class="empty-state">No nutrition data available</p>';
+        }
+    } catch (error) {
+        console.error('Error loading nutrition:', error);
+        // Fallback to mock data
+        ingredientsList.innerHTML = `
+            <label class="ingredient-item"><input type="checkbox" checked> Ingredient 1</label>
+            <label class="ingredient-item"><input type="checkbox" checked> Ingredient 2</label>
+        `;
+        nutritionStats.innerHTML = '<p class="empty-state">Could not load nutrition data</p>';
+    }
 }
 
-function showMakeItModal(itemId) {
+async function showMakeItModal(itemId) {
     const modal = document.getElementById('makeItModal');
     const autoSelectedOptions = document.getElementById('autoSelectedOptions');
     
-    autoSelectedOptions.innerHTML = `
-        <div class="option-values-grid">
-            <div class="option-value-card selected">
-                <div class="option-value-header">
-                    <div class="option-value-image"></div>
-                    <div class="option-value-info">
-                        <div class="option-value-name">Tofu (Vegan, High Protein)</div>
-                        <div class="option-value-nutrition">
-                            <span>20g protein</span>
-                            <span>150 cal</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="option-value-card selected">
-                <div class="option-value-header">
-                    <div class="option-value-image"></div>
-                    <div class="option-value-info">
-                        <div class="option-value-name">Brown Rice (High Fiber)</div>
-                        <div class="option-value-nutrition">
-                            <span>5g fiber</span>
-                            <span>200 cal</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
+    // Show loading state
+    autoSelectedOptions.innerHTML = '<p>Loading customization options...</p>';
     modal.classList.add('active');
+    
+    // Store current item ID for later use
+    modal.dataset.itemId = itemId;
+    
+    try {
+        // Fetch customization options from API
+        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${itemId}/customizations`);
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const customizations = await response.json();
+        
+        if (customizations.length === 0) {
+            autoSelectedOptions.innerHTML = '<p class="empty-state">No customization options available for this item</p>';
+            return;
+        }
+        
+        // Render customization options
+        autoSelectedOptions.innerHTML = customizations.map(customization => {
+            const option = customization.custom_option || customization;
+            const values = option.option_values || [];
+            
+            return `
+                <div class="customization-group" data-option-id="${option.option_id}">
+                    <h4>${option.name}${customization.is_required ? ' *' : ''}</h4>
+                    <p class="option-description">${option.option_description || ''}</p>
+                    <div class="option-values-grid">
+                        ${values.map(value => `
+                            <div class="option-value-card" 
+                                 data-value-id="${value.value_id}"
+                                 onclick="toggleOptionValue(this)">
+                                <div class="option-value-header">
+                                    <div class="option-value-image"></div>
+                                    <div class="option-value-info">
+                                        <div class="option-value-name">${value.value_name}</div>
+                                        <div class="option-value-tags">
+                                            ${(value.diets || []).map(d => `<span class="tag">${d}</span>`).join('')}
+                                        </div>
+                                        <div class="option-value-nutrition">
+                                            ${value.nutrition ? `
+                                                <span>${value.nutrition.protein_grams || 0}g protein</span>
+                                                <span>${value.nutrition.calories || 0} cal</span>
+                                            ` : ''}
+                                            ${value.price ? `<span>+$${value.price.toFixed(2)}</span>` : ''}
+                                        </div>
+                                        ${(value.allergens || []).length > 0 ? `
+                                            <div class="option-allergens">⚠️ ${value.allergens.join(', ')}</div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error loading customizations:', error);
+        autoSelectedOptions.innerHTML = `
+            <div class="option-values-grid">
+                <div class="option-value-card selected">
+                    <div class="option-value-header">
+                        <div class="option-value-image"></div>
+                        <div class="option-value-info">
+                            <div class="option-value-name">Default Option</div>
+                            <div class="option-value-nutrition">
+                                <span>Customization data unavailable</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Toggle option value selection
+function toggleOptionValue(element) {
+    element.classList.toggle('selected');
+    updateConfigurationPreview();
+}
+
+// Update configuration preview with selected options
+async function updateConfigurationPreview() {
+    const modal = document.getElementById('makeItModal');
+    const itemId = modal.dataset.itemId;
+    
+    // Get all selected option value IDs
+    const selectedValues = Array.from(document.querySelectorAll('.option-value-card.selected'))
+        .map(el => el.dataset.valueId)
+        .filter(Boolean);
+    
+    if (selectedValues.length === 0) return;
+    
+    try {
+        const configured = await configureMenuItem(itemId, selectedValues);
+        if (configured) {
+            console.log('📊 Configured item:', configured);
+            // Could update a preview section here
+        }
+    } catch (error) {
+        console.error('Error updating configuration:', error);
+    }
 }
 
 function showTranslateModal(itemId) {
@@ -1256,7 +1458,13 @@ window.yippeeApp = {
     editProfile,
     savePreferences,
     exportShoppingList,
-    clearShoppingList
+    clearShoppingList,
+    // New API functions
+    loadMenuItemDetails,
+    loadMenuItemCustomizations,
+    configureMenuItem,
+    toggleOptionValue,
+    updateConfigurationPreview
 };
 
 console.log('✅ Yippee App JavaScript Loaded');
