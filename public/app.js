@@ -59,6 +59,10 @@ const state = {
         allergens: [],
         priceRange: 100
     },
+    activeTags: [], // For clickable tag filtering
+    activeMenuTags: [], // For menu item tag filtering
+    selectedMenuId: 'all', // Current menu selection
+    currentNutritionItemId: null, // Track current item in nutrition modal
     socialPosts: [],
     postsLoaded: 0
 };
@@ -101,6 +105,27 @@ function setupEventListeners() {
     // Filter checkboxes
     document.querySelectorAll('.filter-panel input[type="checkbox"]').forEach(checkbox => {
         checkbox.addEventListener('change', handleFilterChange);
+    });
+    
+    // Clear all filters button (tag filters)
+    const clearAllFiltersBtn = document.getElementById('clearAllFiltersBtn');
+    if (clearAllFiltersBtn) {
+        clearAllFiltersBtn.addEventListener('click', clearAllTagFilters);
+    }
+    
+    // Restaurant List Filter Button
+    const restaurantListFilterBtn = document.getElementById('restaurantListFilterBtn');
+    if (restaurantListFilterBtn) {
+        restaurantListFilterBtn.addEventListener('click', toggleFilters);
+    }
+    
+    // Keyboard navigation for tags
+    document.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('clickable-tag') && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            const tag = e.target.dataset.tag;
+            if (tag) handleTagClick(tag);
+        }
     });
     
     // View toggle
@@ -431,6 +456,10 @@ function createRestaurantCard(restaurant) {
     const rating = Math.random() * 2 + 3; // Mock rating
     const distance = (Math.random() * 5).toFixed(1); // Mock distance
     
+    // Mock YouTube-style like/dislike counts
+    const likes = Math.floor(Math.random() * 2000) + 100;
+    const dislikes = Math.floor(Math.random() * 100) + 5;
+    
     return `
         <div class="restaurant-card" data-id="${restaurant.restaurant_id}">
             <div class="restaurant-card-image">
@@ -449,12 +478,65 @@ function createRestaurantCard(restaurant) {
                     <span>💵 $$</span>
                     <span>🍽️ ${getTotalItems(restaurant)} items</span>
                 </div>
+                <!-- YouTube-style Like/Dislike Counts -->
+                <div class="restaurant-card-engagement">
+                    <button class="like-btn" data-restaurant-id="${restaurant.restaurant_id}" onclick="event.stopPropagation(); handleRestaurantLike('${restaurant.restaurant_id}', this)" title="Like">
+                        <span class="like-icon">👍</span>
+                        <span class="like-count">${formatCount(likes)}</span>
+                    </button>
+                    <button class="dislike-btn" data-restaurant-id="${restaurant.restaurant_id}" onclick="event.stopPropagation(); handleRestaurantDislike('${restaurant.restaurant_id}', this)" title="Dislike">
+                        <span class="dislike-icon">👎</span>
+                        <span class="dislike-count">${formatCount(dislikes)}</span>
+                    </button>
+                </div>
                 <div class="restaurant-card-tags">
-                    ${renderTags(tags)}
+                    ${renderClickableTags(tags, 'restaurant')}
                 </div>
             </div>
         </div>
     `;
+}
+
+// Format counts like YouTube (e.g., 1.2K)
+function formatCount(count) {
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+        return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+}
+
+// Handle restaurant like (YouTube-style toggle)
+function handleRestaurantLike(restaurantId, btn) {
+    const card = btn.closest('.restaurant-card');
+    const dislikeBtn = card.querySelector('.dislike-btn');
+    
+    // Toggle like state
+    const isActive = btn.classList.toggle('active');
+    
+    // If liking, remove dislike
+    if (isActive && dislikeBtn.classList.contains('active')) {
+        dislikeBtn.classList.remove('active');
+    }
+    
+    showNotification(isActive ? 'Liked! 👍' : 'Like removed', 'success');
+}
+
+// Handle restaurant dislike (YouTube-style toggle)
+function handleRestaurantDislike(restaurantId, btn) {
+    const card = btn.closest('.restaurant-card');
+    const likeBtn = card.querySelector('.like-btn');
+    
+    // Toggle dislike state
+    const isActive = btn.classList.toggle('active');
+    
+    // If disliking, remove like
+    if (isActive && likeBtn.classList.contains('active')) {
+        likeBtn.classList.remove('active');
+    }
+    
+    showNotification(isActive ? 'Disliked 👎' : 'Dislike removed', 'info');
 }
 
 function extractRestaurantTags(restaurant) {
@@ -491,6 +573,111 @@ function renderTags(tags, maxVisible = CONFIG.MAX_VISIBLE_TAGS) {
     }
     
     return html;
+}
+
+// Render clickable tags with filtering capability
+function renderClickableTags(tags, tagType = 'global', maxVisible = CONFIG.MAX_VISIBLE_TAGS) {
+    if (!tags || tags.length === 0) return '';
+    
+    const visibleTags = tags.slice(0, maxVisible);
+    const hiddenTags = tags.slice(maxVisible);
+    
+    let html = visibleTags.map(tag => {
+        const isActive = state.activeTags.includes(tag.toLowerCase());
+        return `<span class="tag clickable-tag ${getTagClass(tag)} ${isActive ? 'tag-active' : ''}" 
+                      data-tag="${tag}" 
+                      data-tag-type="${tagType}"
+                      onclick="event.stopPropagation(); handleTagClick('${tag}')"
+                      tabindex="0"
+                      role="button"
+                      aria-pressed="${isActive}">${tag}${isActive ? ' ✕' : ''}</span>`;
+    }).join('');
+    
+    if (hiddenTags.length > 0) {
+        html += `
+            <span class="tag tag-more" title="${hiddenTags.join(', ')}">
+                +${hiddenTags.length}
+                <div class="hidden-tags">
+                    ${hiddenTags.map(tag => {
+                        const isActive = state.activeTags.includes(tag.toLowerCase());
+                        return `<span class="tag clickable-tag ${getTagClass(tag)} ${isActive ? 'tag-active' : ''}" 
+                                      data-tag="${tag}" 
+                                      onclick="event.stopPropagation(); handleTagClick('${tag}')"
+                                      tabindex="0"
+                                      role="button">${tag}${isActive ? ' ✕' : ''}</span>`;
+                    }).join('')}
+                </div>
+            </span>
+        `;
+    }
+    
+    return html;
+}
+
+// Handle tag click for filtering
+function handleTagClick(tag) {
+    const tagLower = tag.toLowerCase();
+    const index = state.activeTags.indexOf(tagLower);
+    
+    if (index > -1) {
+        // Remove tag from active filters
+        state.activeTags.splice(index, 1);
+    } else {
+        // Add tag to active filters (AND filtering - multiple tags)
+        state.activeTags.push(tagLower);
+    }
+    
+    // Update active filters display
+    updateActiveFiltersDisplay();
+    
+    // Apply filtering
+    applyTagFilters();
+}
+
+// Update the active filters pills display
+function updateActiveFiltersDisplay() {
+    const container = document.getElementById('activeFiltersContainer');
+    const pillsContainer = document.getElementById('activeFilterPills');
+    
+    if (!container || !pillsContainer) return;
+    
+    if (state.activeTags.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    pillsContainer.innerHTML = state.activeTags.map(tag => `
+        <span class="filter-pill ${getTagClass(tag)}" data-tag="${tag}">
+            ${tag}
+            <button class="remove-filter-btn" onclick="handleTagClick('${tag}')" aria-label="Remove ${tag} filter">✕</button>
+        </span>
+    `).join('');
+}
+
+// Apply tag-based filtering
+function applyTagFilters() {
+    if (state.activeTags.length === 0) {
+        renderRestaurantList();
+        return;
+    }
+    
+    // AND filtering: restaurant must have ALL active tags
+    const filtered = state.restaurants.filter(restaurant => {
+        const restaurantTags = extractRestaurantTags(restaurant).map(t => t.toLowerCase());
+        return state.activeTags.every(activeTag => 
+            restaurantTags.some(rTag => rTag.includes(activeTag) || activeTag.includes(rTag))
+        );
+    });
+    
+    renderRestaurantList(filtered);
+}
+
+// Clear all active tag filters
+function clearAllTagFilters() {
+    state.activeTags = [];
+    updateActiveFiltersDisplay();
+    applyTagFilters();
 }
 
 function getTagClass(tag) {
@@ -570,15 +757,361 @@ function openRestaurantModal(restaurant) {
     // Populate restaurant info
     document.getElementById('modalRestaurantName').textContent = restaurant.restaurant_name;
     document.getElementById('modalRestaurantDescription').textContent = restaurant.description || 'A great dining experience awaits you.';
-    document.getElementById('modalRestaurantAddress').textContent = restaurant.address || '123 Main St, City, State';
-    document.getElementById('modalRestaurantPhone').textContent = restaurant.phone || '(555) 123-4567';
-    document.getElementById('modalRestaurantEmail').textContent = restaurant.email || 'contact@restaurant.com';
+    
+    // Get locations count
+    const locations = restaurant.locations || [];
+    const hasMultipleLocations = locations.length > 1;
+    
+    // Handle contact info visibility based on location count
+    const singleLocationContact = document.getElementById('singleLocationContact');
+    if (singleLocationContact) {
+        singleLocationContact.style.display = hasMultipleLocations ? 'none' : 'block';
+    }
+    
+    // Populate single location contact if applicable
+    if (!hasMultipleLocations) {
+        document.getElementById('modalRestaurantAddress').textContent = restaurant.address || '123 Main St, City, State';
+        document.getElementById('modalRestaurantPhone').textContent = restaurant.phone || '(555) 123-4567';
+        document.getElementById('modalRestaurantEmail').textContent = restaurant.email || 'contact@restaurant.com';
+    }
+    
+    // Render restaurant-specific tags (now below description)
+    renderModalRestaurantTags(restaurant);
+    
+    // Render ratings from multiple sources
+    renderRestaurantRatings(restaurant);
+    
+    // Render location cards (collapsible)
+    renderLocationCards(restaurant);
+    
+    // Render contact section for multi-location
+    renderContactSection(restaurant);
+    
+    // Populate menu selector dropdown
+    populateMenuSelector(restaurant);
     
     // Render menu items
     renderMenuItems(restaurant);
     
+    // Reset menu filters
+    state.activeMenuTags = [];
+    state.selectedMenuId = 'all';
+    
     // Show modal
     modal.classList.add('active');
+}
+
+// Render ratings from multiple sources (Yelp, Google, etc.)
+function renderRestaurantRatings(restaurant) {
+    const container = document.getElementById('ratingsContainer');
+    if (!container) return;
+    
+    // Mock ratings from different sources - sorted by display_order
+    const ratings = restaurant.ratings || [
+        { source_id: 'yelp', source_name: 'Yelp', rating: 4.5, review_count: 234, display_order: 1 },
+        { source_id: 'google', source_name: 'Google', rating: 4.3, review_count: 567, display_order: 2 },
+        { source_id: 'tripadvisor', source_name: 'TripAdvisor', rating: 4.2, review_count: 123, display_order: 3 }
+    ];
+    
+    // Sort by display_order
+    ratings.sort((a, b) => a.display_order - b.display_order);
+    
+    if (ratings.length === 0) {
+        container.innerHTML = '<p class="empty-state">No ratings available</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="ratings-list">
+            ${ratings.map((rating, index) => `
+                <div class="rating-item ${index === 0 ? 'primary-rating' : ''}" 
+                     onclick="showRatingDetails('${rating.source_id}', '${rating.source_name}', ${rating.rating})"
+                     tabindex="0"
+                     role="button"
+                     title="Click to see full rating details">
+                    <span class="rating-source">${rating.source_name}</span>
+                    <span class="rating-value">⭐ ${rating.rating.toFixed(1)}</span>
+                    <span class="rating-count">(${rating.review_count})</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Show rating details on click
+function showRatingDetails(sourceId, sourceName, rating) {
+    showNotification(`${sourceName}: ${rating.toFixed(1)} stars`, 'info');
+}
+
+// Render contact section for multi-location restaurants
+function renderContactSection(restaurant) {
+    const contactDetails = document.getElementById('contactDetails');
+    if (!contactDetails) return;
+    
+    const locations = restaurant.locations || [];
+    
+    if (locations.length > 1) {
+        // Multi-location: show general contact or first location contact
+        contactDetails.innerHTML = `
+            <p class="contact-note">This restaurant has multiple locations. Select a location above to see specific contact information.</p>
+            <div class="contact-item">
+                <span>📧</span>
+                <span>${restaurant.email || 'contact@restaurant.com'}</span>
+                <button class="copy-btn" onclick="copyToClipboard('${restaurant.email || 'contact@restaurant.com'}')">📋</button>
+            </div>
+        `;
+    } else {
+        contactDetails.innerHTML = `
+            <div class="contact-item">
+                <span>📍</span>
+                <span>${restaurant.address || '123 Main St, City, State'}</span>
+            </div>
+            <div class="contact-item">
+                <span>📞</span>
+                <span>${restaurant.phone || '(555) 123-4567'}</span>
+                <button class="copy-btn" onclick="copyToClipboard('${restaurant.phone || '(555) 123-4567'}')">📋</button>
+            </div>
+            <div class="contact-item">
+                <span>📧</span>
+                <span>${restaurant.email || 'contact@restaurant.com'}</span>
+                <button class="copy-btn" onclick="copyToClipboard('${restaurant.email || 'contact@restaurant.com'}')">📋</button>
+            </div>
+        `;
+    }
+}
+
+// Copy text to clipboard
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Copied to clipboard!', 'success');
+    });
+}
+
+// Toggle collapsible sections
+function toggleCollapsibleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.classList.toggle('collapsed');
+    }
+}
+
+// Populate menu selector dropdown
+function populateMenuSelector(restaurant) {
+    const selector = document.getElementById('menuSelector');
+    if (!selector) return;
+    
+    const menus = restaurant.menus || [];
+    
+    selector.innerHTML = `
+        <option value="all">All Items</option>
+        ${menus.map(menu => `
+            <option value="${menu.menu_id}">${menu.menu_name}</option>
+        `).join('')}
+    `;
+}
+
+// Handle menu selection change
+function handleMenuSelection() {
+    const selector = document.getElementById('menuSelector');
+    state.selectedMenuId = selector.value;
+    
+    // Re-render menu items based on selection
+    if (state.selectedRestaurant) {
+        renderMenuItems(state.selectedRestaurant);
+    }
+}
+
+// Handle menu search
+function handleMenuSearch() {
+    const searchInput = document.getElementById('menuSearch');
+    const query = searchInput.value.toLowerCase();
+    
+    if (state.selectedRestaurant) {
+        filterAndRenderMenuItems(state.selectedRestaurant, query);
+    }
+}
+
+// Filter and render menu items
+function filterAndRenderMenuItems(restaurant, searchQuery = '') {
+    const menuItemsList = document.getElementById('menuItemsList');
+    if (!menuItemsList) return;
+    
+    let allItems = [];
+    restaurant.menus?.forEach(menu => {
+        // Filter by selected menu
+        if (state.selectedMenuId !== 'all' && menu.menu_id !== state.selectedMenuId) {
+            return;
+        }
+        if (menu.items) {
+            allItems = [...allItems, ...menu.items.map(item => ({ ...item, menuName: menu.menu_name }))];
+        }
+    });
+    
+    // Filter by search query
+    if (searchQuery) {
+        allItems = allItems.filter(item => {
+            const nameMatch = item.item_name?.toLowerCase().includes(searchQuery);
+            const descMatch = item.description?.toLowerCase().includes(searchQuery);
+            const tagMatch = item.tags?.some(tag => tag.toLowerCase().includes(searchQuery));
+            const priceMatch = item.base_price?.toString().includes(searchQuery);
+            return nameMatch || descMatch || tagMatch || priceMatch;
+        });
+    }
+    
+    // Filter by active menu tags
+    if (state.activeMenuTags.length > 0) {
+        allItems = allItems.filter(item => {
+            const itemTags = (item.tags || []).map(t => t.toLowerCase());
+            return state.activeMenuTags.every(activeTag => 
+                itemTags.some(tag => tag.includes(activeTag) || activeTag.includes(tag))
+            );
+        });
+    }
+    
+    if (allItems.length === 0) {
+        menuItemsList.innerHTML = '<p class="empty-state">No menu items match your search/filters</p>';
+        return;
+    }
+    
+    menuItemsList.innerHTML = allItems.map(item => createMenuItemCard(item)).join('');
+    setupMenuItemListeners();
+}
+
+// Handle restaurant page like
+function handleRestaurantPageLike() {
+    const btn = document.querySelector('.like-restaurant-btn');
+    const dislikeBtn = document.querySelector('.dislike-restaurant-btn');
+    
+    const isActive = btn.classList.toggle('active');
+    if (isActive && dislikeBtn.classList.contains('active')) {
+        dislikeBtn.classList.remove('active');
+    }
+    
+    showNotification(isActive ? 'Restaurant liked! 👍' : 'Like removed', 'success');
+}
+
+// Handle restaurant page dislike
+function handleRestaurantPageDislike() {
+    const btn = document.querySelector('.dislike-restaurant-btn');
+    const likeBtn = document.querySelector('.like-restaurant-btn');
+    
+    const isActive = btn.classList.toggle('active');
+    if (isActive && likeBtn.classList.contains('active')) {
+        likeBtn.classList.remove('active');
+    }
+    
+    showNotification(isActive ? 'Restaurant disliked 👎' : 'Dislike removed', 'info');
+}
+
+// Handle restaurant save/bookmark
+function handleRestaurantSave() {
+    const btn = document.querySelector('.save-restaurant-btn');
+    const isActive = btn.classList.toggle('active');
+    
+    showNotification(isActive ? 'Restaurant saved! 🔖' : 'Removed from saved', 'success');
+}
+
+// Render restaurant-specific tags in modal
+function renderModalRestaurantTags(restaurant) {
+    const tagsContainer = document.getElementById('modalRestaurantTags');
+    if (!tagsContainer) return;
+    
+    const tags = extractRestaurantTags(restaurant);
+    
+    if (tags.length === 0) {
+        tagsContainer.innerHTML = '<p class="empty-state">No tags available</p>';
+        return;
+    }
+    
+    tagsContainer.innerHTML = tags.map(tag => {
+        const isActive = state.activeTags.includes(tag.toLowerCase());
+        return `<span class="tag clickable-tag ${getTagClass(tag)} ${isActive ? 'tag-active' : ''}" 
+                      data-tag="${tag}"
+                      onclick="handleTagClick('${tag}')"
+                      tabindex="0"
+                      role="button"
+                      aria-pressed="${isActive}">${tag}${isActive ? ' ✕' : ''}</span>`;
+    }).join('');
+}
+
+// Render location cards in restaurant modal
+function renderLocationCards(restaurant) {
+    const container = document.getElementById('locationCardsContainer');
+    if (!container) return;
+    
+    // Get locations from restaurant data or generate mock ones
+    const locations = restaurant.locations || [
+        {
+            location_id: 'loc_1',
+            name: 'Main Location',
+            address: restaurant.address || '123 Main St, City, State 12345',
+            phone: restaurant.phone || '(555) 123-4567',
+            hours: 'Mon-Sun: 11am - 10pm',
+            is_primary: true
+        },
+        {
+            location_id: 'loc_2',
+            name: 'Downtown Branch',
+            address: '456 Downtown Ave, City, State 12345',
+            phone: '(555) 987-6543',
+            hours: 'Mon-Sat: 10am - 11pm',
+            is_primary: false
+        }
+    ];
+    
+    if (locations.length === 0) {
+        container.innerHTML = '<p class="empty-state">No location information available</p>';
+        return;
+    }
+    
+    container.innerHTML = locations.map(location => `
+        <div class="location-card ${location.is_primary ? 'primary-location' : ''}" 
+             data-location-id="${location.location_id}"
+             onclick="handleLocationCardClick('${location.location_id}')"
+             tabindex="0"
+             role="button">
+            <div class="location-card-header">
+                <h4 class="location-name">${location.name} ${location.is_primary ? '<span class="primary-badge">Primary</span>' : ''}</h4>
+            </div>
+            <div class="location-card-body">
+                <p class="location-address">📍 ${location.address}</p>
+                <p class="location-phone">📞 ${location.phone}</p>
+                <p class="location-hours">🕐 ${location.hours}</p>
+            </div>
+            <div class="location-card-actions">
+                <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); openLocationOnMap('${location.location_id}')">
+                    🗺️ View on Map
+                </button>
+                <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); getDirections('${location.address}')">
+                    🧭 Directions
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Handle location card click
+function handleLocationCardClick(locationId) {
+    // Scroll/zoom to location on map or open location modal
+    const localMap = document.getElementById('localMap');
+    if (localMap) {
+        localMap.style.display = 'block';
+        localMap.innerHTML = `<div class="map-placeholder-small">Showing location: ${locationId}</div>`;
+    }
+    showNotification('Focusing on selected location', 'info');
+}
+
+// Open location on map
+function openLocationOnMap(locationId) {
+    showNotification('Opening location on map...', 'info');
+    // In real app, would scroll/zoom the embedded map to this location
+}
+
+// Get directions to location
+function getDirections(address) {
+    // Open Google Maps directions in new tab
+    const encodedAddress = encodeURIComponent(address);
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank');
 }
 
 function renderMenuItems(restaurant) {
@@ -605,10 +1138,11 @@ function renderMenuItems(restaurant) {
 
 function createMenuItemCard(item) {
     const tags = item.tags || [];
-    const isCustomizable = tags.some(tag => tag.toLowerCase().includes('customizable') || tag.toLowerCase().includes('build'));
+    const isCustomizable = tags.some(tag => tag.toLowerCase().includes('customizable') || tag.toLowerCase().includes('build') || tag.toLowerCase().includes('buildable'));
     
+    // Menu item card is now clickable - entire card expands
     return `
-        <div class="menu-item-card" data-id="${item.menu_item_id}">
+        <div class="menu-item-card clickable-card" data-id="${item.menu_item_id}" onclick="toggleExpandedItem('${item.menu_item_id}')">
             <div class="menu-item-main">
                 <div class="menu-item-image">
                     ${item.image_url ? `<img src="${item.image_url}" alt="${item.item_name}">` : ''}
@@ -622,20 +1156,17 @@ function createMenuItemCard(item) {
                         <span class="menu-item-price">$${parseFloat(item.base_price || 0).toFixed(2)}</span>
                     </div>
                     <div class="menu-item-tags">
-                        ${renderTags(tags)}
+                        ${renderClickableMenuTags(tags)}
                     </div>
-                    <div class="menu-item-actions">
+                    <div class="menu-item-actions" onclick="event.stopPropagation()">
                         <button class="btn-primary show-nutrition" data-id="${item.menu_item_id}">
-                            📊 Show Nutrition
+                            📊 Nutrition
                         </button>
                         ${isCustomizable ? `
                             <button class="btn-primary make-it" data-id="${item.menu_item_id}">
                                 🎯 Make It
                             </button>
                         ` : ''}
-                        <button class="btn-secondary translate" data-id="${item.menu_item_id}">
-                            🌍 Translate
-                        </button>
                         <button class="btn-icon like-item" data-id="${item.menu_item_id}" title="Like">
                             ❤️
                         </button>
@@ -645,9 +1176,6 @@ function createMenuItemCard(item) {
                         <button class="btn-icon add-to-cart" data-id="${item.menu_item_id}" title="Add to Cart">
                             🛒
                         </button>
-                        <button class="btn-icon expand-item" data-id="${item.menu_item_id}" title="Expand">
-                            ➕
-                        </button>
                     </div>
                 </div>
             </div>
@@ -656,6 +1184,94 @@ function createMenuItemCard(item) {
             </div>
         </div>
     `;
+}
+
+// Render clickable menu item tags that filter the menu
+function renderClickableMenuTags(tags, maxVisible = CONFIG.MAX_VISIBLE_TAGS) {
+    if (!tags || tags.length === 0) return '';
+    
+    const visibleTags = tags.slice(0, maxVisible);
+    const hiddenTags = tags.slice(maxVisible);
+    
+    let html = visibleTags.map(tag => {
+        const isActive = state.activeMenuTags.includes(tag.toLowerCase());
+        return `<span class="tag clickable-tag menu-tag ${getTagClass(tag)} ${isActive ? 'tag-active' : ''}" 
+                      data-tag="${tag}"
+                      onclick="event.stopPropagation(); handleMenuTagClick('${tag}')"
+                      tabindex="0"
+                      role="button"
+                      aria-pressed="${isActive}">${tag}${isActive ? ' ✕' : ''}</span>`;
+    }).join('');
+    
+    if (hiddenTags.length > 0) {
+        html += `
+            <span class="tag tag-more" title="${hiddenTags.join(', ')}" onclick="event.stopPropagation()">
+                +${hiddenTags.length}
+                <div class="hidden-tags">
+                    ${hiddenTags.map(tag => {
+                        const isActive = state.activeMenuTags.includes(tag.toLowerCase());
+                        return `<span class="tag clickable-tag menu-tag ${getTagClass(tag)} ${isActive ? 'tag-active' : ''}" 
+                                      data-tag="${tag}" 
+                                      onclick="event.stopPropagation(); handleMenuTagClick('${tag}')"
+                                      tabindex="0"
+                                      role="button">${tag}${isActive ? ' ✕' : ''}</span>`;
+                    }).join('')}
+                </div>
+            </span>
+        `;
+    }
+    
+    return html;
+}
+
+// Handle menu tag click for filtering menu items
+function handleMenuTagClick(tag) {
+    const tagLower = tag.toLowerCase();
+    const index = state.activeMenuTags.indexOf(tagLower);
+    
+    if (index > -1) {
+        state.activeMenuTags.splice(index, 1);
+    } else {
+        state.activeMenuTags.push(tagLower);
+    }
+    
+    // Update menu filter pills display
+    updateMenuFiltersDisplay();
+    
+    // Re-render filtered menu items
+    if (state.selectedRestaurant) {
+        filterAndRenderMenuItems(state.selectedRestaurant);
+    }
+}
+
+// Update menu active filters display
+function updateMenuFiltersDisplay() {
+    const container = document.getElementById('menuActiveFilters');
+    const pillsContainer = document.getElementById('menuFilterPills');
+    
+    if (!container || !pillsContainer) return;
+    
+    if (state.activeMenuTags.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'flex';
+    pillsContainer.innerHTML = state.activeMenuTags.map(tag => `
+        <span class="filter-pill ${getTagClass(tag)}" data-tag="${tag}">
+            ${tag}
+            <button class="remove-filter-btn" onclick="handleMenuTagClick('${tag}')" aria-label="Remove ${tag} filter">✕</button>
+        </span>
+    `).join('');
+}
+
+// Clear all menu tag filters
+function clearMenuTagFilters() {
+    state.activeMenuTags = [];
+    updateMenuFiltersDisplay();
+    if (state.selectedRestaurant) {
+        filterAndRenderMenuItems(state.selectedRestaurant);
+    }
 }
 
 function setupMenuItemListeners() {
@@ -720,6 +1336,20 @@ function toggleExpandedItem(itemId) {
     const expandedSection = document.getElementById(`expanded-${itemId}`);
     const isActive = expandedSection.classList.contains('active');
     
+    // Find the item to check if it's customizable
+    let currentItem = null;
+    state.selectedRestaurant?.menus?.forEach(menu => {
+        const found = menu.items?.find(item => item.menu_item_id === itemId);
+        if (found) currentItem = found;
+    });
+    
+    const tags = currentItem?.tags || [];
+    const isCustomizable = tags.some(tag => 
+        tag.toLowerCase().includes('customizable') || 
+        tag.toLowerCase().includes('build') || 
+        tag.toLowerCase().includes('buildable')
+    );
+    
     if (isActive) {
         expandedSection.classList.remove('active');
         expandedSection.innerHTML = '';
@@ -733,7 +1363,7 @@ function toggleExpandedItem(itemId) {
                 </div>
                 <div class="expanded-details">
                     <h4>Long Description</h4>
-                    <p>This is a more detailed description of the menu item, including preparation methods, flavor profiles, and recommended pairings.</p>
+                    <p>${currentItem?.long_description || 'This is a more detailed description of the menu item, including preparation methods, flavor profiles, and recommended pairings.'}</p>
                     
                     <div class="ingredients-list">
                         <h4>Ingredients</h4>
@@ -750,23 +1380,56 @@ function toggleExpandedItem(itemId) {
                         <h4>Nutrition Facts</h4>
                         <div class="nutrition-grid">
                             <div class="nutrition-item">
-                                <strong>450</strong>
+                                <strong>${currentItem?.nutrition?.calories || 450}</strong>
                                 <span>Calories</span>
                             </div>
                             <div class="nutrition-item">
-                                <strong>25g</strong>
+                                <strong>${currentItem?.nutrition?.protein_grams || 25}g</strong>
                                 <span>Protein</span>
                             </div>
                             <div class="nutrition-item">
-                                <strong>15g</strong>
+                                <strong>${currentItem?.nutrition?.fat_grams || 15}g</strong>
                                 <span>Fat</span>
                             </div>
                             <div class="nutrition-item">
-                                <strong>40g</strong>
+                                <strong>${currentItem?.nutrition?.carbohydrates_grams || 40}g</strong>
                                 <span>Carbs</span>
                             </div>
                         </div>
                     </div>
+                    
+                    ${isCustomizable ? `
+                        <!-- Example Meal Builds for Customizable Items -->
+                        <div class="example-builds-section">
+                            <h4>🍽️ Example Meal Builds</h4>
+                            <div class="example-builds-grid">
+                                <div class="example-build-card">
+                                    <h5>High Protein Build</h5>
+                                    <p>Double protein, extra beans, no cheese</p>
+                                    <div class="build-nutrition">
+                                        <span>580 cal</span>
+                                        <span>45g protein</span>
+                                    </div>
+                                </div>
+                                <div class="example-build-card">
+                                    <h5>Vegan Build</h5>
+                                    <p>Plant protein, extra veggies, vegan sauce</p>
+                                    <div class="build-nutrition">
+                                        <span>420 cal</span>
+                                        <span>22g protein</span>
+                                    </div>
+                                </div>
+                                <div class="example-build-card">
+                                    <h5>Low Carb Build</h5>
+                                    <p>Lettuce wrap, extra meat, no rice</p>
+                                    <div class="build-nutrition">
+                                        <span>350 cal</span>
+                                        <span>30g protein</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
             <div class="comments-section">
@@ -798,21 +1461,68 @@ async function showNutritionModal(itemId) {
     const modal = document.getElementById('nutritionModal');
     const ingredientsList = document.getElementById('ingredientsList');
     const nutritionStats = document.getElementById('nutritionStats');
+    const customizationSection = document.getElementById('nutritionCustomizationSection');
+    const customizationList = document.getElementById('nutritionCustomizationList');
+    
+    // Store current item ID for real-time updates
+    state.currentNutritionItemId = itemId;
     
     // Show loading state
     ingredientsList.innerHTML = '<p>Loading ingredients...</p>';
     nutritionStats.innerHTML = '<p>Loading nutrition data...</p>';
+    customizationList.innerHTML = '<p>Loading customization options...</p>';
     modal.classList.add('active');
     
     try {
-        // Fetch real nutrition data from API
-        const response = await fetch(`${CONFIG.API_BASE}/menu-items/${itemId}/nutrition`);
-        if (!response.ok) throw new Error('Failed to fetch');
+        // Fetch nutrition data and customization options in parallel
+        const [nutritionResponse, customizationsResponse] = await Promise.all([
+            fetch(`${CONFIG.API_BASE}/menu-items/${itemId}/nutrition`),
+            fetch(`${CONFIG.API_BASE}/menu-items/${itemId}/customizations`)
+        ]);
         
-        const data = await response.json();
-        const nutrition = data.nutrition || data;
-        const ingredients = data.ingredients || [];
-        const allergens = data.allergens || [];
+        const nutritionData = nutritionResponse.ok ? await nutritionResponse.json() : null;
+        const customizations = customizationsResponse.ok ? await customizationsResponse.json() : [];
+        
+        const nutrition = nutritionData?.nutrition || nutritionData;
+        const ingredients = nutritionData?.ingredients || [];
+        const allergens = nutritionData?.allergens || [];
+        
+        // Render customization options with checkboxes
+        if (customizations.length > 0) {
+            customizationSection.style.display = 'block';
+            customizationList.innerHTML = customizations.map(customization => {
+                const option = customization.custom_option || customization;
+                const values = option.option_values || [];
+                
+                return `
+                    <div class="customization-option-group" data-option-id="${option.option_id}">
+                        <h4>${option.name}${customization.is_required ? ' <span class="required">*</span>' : ''}</h4>
+                        <div class="option-values-checkboxes">
+                            ${values.map(value => `
+                                <label class="option-value-checkbox">
+                                    <input type="checkbox" 
+                                           data-value-id="${value.value_id}"
+                                           data-calories="${value.nutrition?.calories || 0}"
+                                           data-protein="${value.nutrition?.protein_grams || 0}"
+                                           data-fat="${value.nutrition?.fat_grams || 0}"
+                                           data-carbs="${value.nutrition?.carbohydrates_grams || 0}"
+                                           onchange="updateNutritionRealTime()">
+                                    <span class="option-value-name">${value.value_name}</span>
+                                    ${value.nutrition ? `
+                                        <span class="option-value-nutrition-mini">
+                                            +${value.nutrition.calories || 0} cal, ${value.nutrition.protein_grams || 0}g protein
+                                        </span>
+                                    ` : ''}
+                                    ${value.price ? `<span class="option-value-price">+$${value.price.toFixed(2)}</span>` : ''}
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            customizationSection.style.display = 'none';
+        }
         
         // Render ingredients
         if (ingredients.length > 0) {
@@ -821,7 +1531,7 @@ async function showNutritionModal(itemId) {
                 const isOptional = ing.is_optional || false;
                 return `
                     <label class="ingredient-item">
-                        <input type="checkbox" checked onchange="updateNutrition()" data-ingredient="${name}">
+                        <input type="checkbox" checked onchange="updateNutritionRealTime()" data-ingredient="${name}">
                         ${name}${isOptional ? ' (optional)' : ''}
                         ${ing.is_vegan ? ' 🌱' : ''}
                         ${ing.is_gluten_free ? ' 🌾✓' : ''}
@@ -832,58 +1542,132 @@ async function showNutritionModal(itemId) {
             ingredientsList.innerHTML = '<p class="empty-state">No ingredient data available</p>';
         }
         
+        // Store base nutrition for real-time calculations
+        modal.dataset.baseCalories = nutrition?.calories || 0;
+        modal.dataset.baseProtein = nutrition?.protein_grams || 0;
+        modal.dataset.baseFat = nutrition?.fat_grams || 0;
+        modal.dataset.baseCarbs = nutrition?.carbohydrates_grams || 0;
+        modal.dataset.baseFiber = nutrition?.fiber_grams || 0;
+        modal.dataset.baseSodium = nutrition?.sodium_mg || 0;
+        
         // Render nutrition stats
-        if (nutrition) {
-            nutritionStats.innerHTML = `
-                <div class="nutrition-grid">
-                    <div class="nutrition-item">
-                        <strong>${nutrition.calories || 0}</strong>
-                        <span>Calories</span>
-                    </div>
-                    <div class="nutrition-item">
-                        <strong>${nutrition.protein_grams || 0}g</strong>
-                        <span>Protein</span>
-                    </div>
-                    <div class="nutrition-item">
-                        <strong>${nutrition.fat_grams || 0}g</strong>
-                        <span>Fat</span>
-                    </div>
-                    <div class="nutrition-item">
-                        <strong>${nutrition.carbohydrates_grams || 0}g</strong>
-                        <span>Carbs</span>
-                    </div>
-                    <div class="nutrition-item">
-                        <strong>${nutrition.fiber_grams || 0}g</strong>
-                        <span>Fiber</span>
-                    </div>
-                    <div class="nutrition-item">
-                        <strong>${nutrition.sodium_mg || 0}mg</strong>
-                        <span>Sodium</span>
-                    </div>
-                </div>
-                ${allergens.length > 0 ? `
-                    <div class="allergens-warning" style="margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border-radius: 8px;">
-                        <strong>⚠️ Allergens:</strong> ${allergens.map(a => a.name || a).join(', ')}
-                    </div>
-                ` : ''}
-                ${data.diets && data.diets.length > 0 ? `
-                    <div class="diets-info" style="margin-top: 0.5rem;">
-                        <strong>Suitable for:</strong> ${data.diets.join(', ')}
-                    </div>
-                ` : ''}
-            `;
-        } else {
-            nutritionStats.innerHTML = '<p class="empty-state">No nutrition data available</p>';
-        }
+        renderNutritionStats(nutrition, allergens, nutritionData?.diets);
+        
     } catch (error) {
         console.error('Error loading nutrition:', error);
-        // Fallback to mock data
+        customizationSection.style.display = 'none';
         ingredientsList.innerHTML = `
             <label class="ingredient-item"><input type="checkbox" checked> Ingredient 1</label>
             <label class="ingredient-item"><input type="checkbox" checked> Ingredient 2</label>
         `;
         nutritionStats.innerHTML = '<p class="empty-state">Could not load nutrition data</p>';
     }
+}
+
+// Render nutrition stats
+function renderNutritionStats(nutrition, allergens = [], diets = []) {
+    const nutritionStats = document.getElementById('nutritionStats');
+    
+    if (nutrition) {
+        nutritionStats.innerHTML = `
+            <div class="nutrition-grid" id="nutritionGrid">
+                <div class="nutrition-item">
+                    <strong id="caloriesValue">${nutrition.calories || 0}</strong>
+                    <span>Calories</span>
+                </div>
+                <div class="nutrition-item">
+                    <strong id="proteinValue">${nutrition.protein_grams || 0}g</strong>
+                    <span>Protein</span>
+                </div>
+                <div class="nutrition-item">
+                    <strong id="fatValue">${nutrition.fat_grams || 0}g</strong>
+                    <span>Fat</span>
+                </div>
+                <div class="nutrition-item">
+                    <strong id="carbsValue">${nutrition.carbohydrates_grams || 0}g</strong>
+                    <span>Carbs</span>
+                </div>
+                <div class="nutrition-item">
+                    <strong id="fiberValue">${nutrition.fiber_grams || 0}g</strong>
+                    <span>Fiber</span>
+                </div>
+                <div class="nutrition-item">
+                    <strong id="sodiumValue">${nutrition.sodium_mg || 0}mg</strong>
+                    <span>Sodium</span>
+                </div>
+            </div>
+            ${allergens.length > 0 ? `
+                <div class="allergens-warning" style="margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border-radius: 8px;">
+                    <strong>⚠️ Allergens:</strong> ${allergens.map(a => a.name || a).join(', ')}
+                </div>
+            ` : ''}
+            ${diets && diets.length > 0 ? `
+                <div class="diets-info" style="margin-top: 0.5rem;">
+                    <strong>Suitable for:</strong> ${diets.join(', ')}
+                </div>
+            ` : ''}
+        `;
+    } else {
+        nutritionStats.innerHTML = '<p class="empty-state">No nutrition data available</p>';
+    }
+}
+
+// Update nutrition in real-time based on checkbox selections
+function updateNutritionRealTime() {
+    const modal = document.getElementById('nutritionModal');
+    
+    // Get base values
+    let calories = parseFloat(modal.dataset.baseCalories) || 0;
+    let protein = parseFloat(modal.dataset.baseProtein) || 0;
+    let fat = parseFloat(modal.dataset.baseFat) || 0;
+    let carbs = parseFloat(modal.dataset.baseCarbs) || 0;
+    
+    // Add values from selected customization options
+    const selectedOptions = document.querySelectorAll('.option-value-checkbox input:checked');
+    selectedOptions.forEach(checkbox => {
+        calories += parseFloat(checkbox.dataset.calories) || 0;
+        protein += parseFloat(checkbox.dataset.protein) || 0;
+        fat += parseFloat(checkbox.dataset.fat) || 0;
+        carbs += parseFloat(checkbox.dataset.carbs) || 0;
+    });
+    
+    // Update displayed values
+    const caloriesEl = document.getElementById('caloriesValue');
+    const proteinEl = document.getElementById('proteinValue');
+    const fatEl = document.getElementById('fatValue');
+    const carbsEl = document.getElementById('carbsValue');
+    
+    if (caloriesEl) caloriesEl.textContent = Math.round(calories);
+    if (proteinEl) proteinEl.textContent = `${Math.round(protein)}g`;
+    if (fatEl) fatEl.textContent = `${Math.round(fat)}g`;
+    if (carbsEl) carbsEl.textContent = `${Math.round(carbs)}g`;
+    
+    // Visual feedback
+    const nutritionGrid = document.getElementById('nutritionGrid');
+    if (nutritionGrid) {
+        nutritionGrid.classList.add('nutrition-updated');
+        setTimeout(() => nutritionGrid.classList.remove('nutrition-updated'), 300);
+    }
+}
+
+// Open translate modal for shopping list
+function openTranslateForShoppingList() {
+    const modal = document.getElementById('translateModal');
+    const translationOutput = document.getElementById('translationOutput');
+    
+    // Generate translation from shopping cart items
+    const items = state.shoppingCart.map(item => item.item_name).join(', ');
+    
+    translationOutput.innerHTML = `
+        <div style="background: var(--bg-light); padding: 1rem; border-radius: var(--radius-md); margin-top: 1rem;">
+            <p><strong>Your Order (English):</strong></p>
+            <p>${items || 'No items in cart'}</p>
+            <p style="margin-top: 1rem;"><strong>Spanish:</strong></p>
+            <p>Me gustaría ordenar: ${items || 'No hay artículos'}</p>
+        </div>
+    `;
+    
+    modal.classList.add('active');
 }
 
 async function showMakeItModal(itemId) {
@@ -1464,7 +2248,30 @@ window.yippeeApp = {
     loadMenuItemCustomizations,
     configureMenuItem,
     toggleOptionValue,
-    updateConfigurationPreview
+    updateConfigurationPreview,
+    // Tag filtering functions
+    handleTagClick,
+    clearAllTagFilters,
+    // Like/Dislike functions
+    handleRestaurantLike,
+    handleRestaurantDislike,
+    // Location functions
+    handleLocationCardClick,
+    openLocationOnMap,
+    getDirections,
+    // UI Iteration 2 functions
+    toggleCollapsibleSection,
+    handleMenuSelection,
+    handleMenuSearch,
+    handleMenuTagClick,
+    clearMenuTagFilters,
+    handleRestaurantPageLike,
+    handleRestaurantPageDislike,
+    handleRestaurantSave,
+    showRatingDetails,
+    copyToClipboard,
+    updateNutritionRealTime,
+    openTranslateForShoppingList
 };
 
 console.log('✅ Yippee App JavaScript Loaded');

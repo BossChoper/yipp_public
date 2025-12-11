@@ -608,18 +608,730 @@ body {
 }
 
 /* ========================================
+   Clickable Tags with Filter State
+   ======================================== */
+
+.clickable-tag {
+    cursor: pointer;
+    user-select: none;
+    transition: var(--transition-base);
+}
+
+.clickable-tag:hover {
+    transform: scale(1.08);
+    box-shadow: var(--shadow-sm);
+}
+
+.clickable-tag:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.clickable-tag:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Active tag filter state */
+.tag-active {
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+    transform: scale(1.05);
+    font-weight: 700;
+}
+
+.tag-active::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: var(--primary-color);
+    border-radius: 50%;
+}
+
+/* ========================================
+   Active Filters Container
+   ======================================== */
+
+.active-filters-container {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    animation: slideDown 0.3s ease;
+}
+
+.active-filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.active-filters-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.clear-all-filters-btn {
+    padding: 0.5rem var(--spacing-md);
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: var(--transition-base);
+}
+
+.clear-all-filters-btn:hover {
+    background: #c0392b;
+    transform: translateY(-1px);
+}
+
+.active-filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: white;
+    animation: fadeIn 0.2s ease;
+}
+
+.filter-pill .remove-filter-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 0.25rem;
+    transition: var(--transition-fast);
+}
+
+.filter-pill .remove-filter-btn:hover {
+    transform: scale(1.2);
+}
+
+/* ========================================
+   YouTube-style Like/Dislike Buttons
+   ======================================== */
+
+.restaurant-card-engagement {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.like-btn, .dislike-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0.4rem 0.75rem;
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition-base);
+}
+
+.like-btn:hover {
+    border-color: #22BB88;
+    background: rgba(34, 187, 136, 0.1);
+    color: #22BB88;
+}
+
+.dislike-btn:hover {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.like-btn.active {
+    background: #22BB88;
+    border-color: #22BB88;
+    color: white;
+}
+
+.dislike-btn.active {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    color: white;
+}
+
+.like-btn:focus, .dislike-btn:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.like-icon, .dislike-icon {
+    font-size: 1rem;
+}
+
+.like-count, .dislike-count {
+    font-size: 0.85rem;
+}
+
+/* ========================================
+   Location Cards Section
+   ======================================== */
+
+.location-cards-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.location-cards-section h3 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.location-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.location-card {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.location-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.location-card:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.location-card.primary-location {
+    border-color: var(--accent-color);
+    background: rgba(34, 187, 136, 0.05);
+}
+
+.location-card-header {
+    margin-bottom: var(--spacing-sm);
+}
+
+.location-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.primary-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background: var(--accent-color);
+    color: white;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.location-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.location-card-body p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.location-card-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+/* ========================================
+   Restaurant Tags Section in Modal
+   ======================================== */
+
+.restaurant-tags-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.restaurant-tags-section h3 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.restaurant-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+/* ========================================
+   Prominent Disclaimer Styling
+   ======================================== */
+
+.disclaimer.prominent-warning {
+    background: #fef3cd;
+    border: 3px solid #ffc107;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+}
+
+.disclaimer.prominent-warning .disclaimer-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.disclaimer.prominent-warning p {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #856404;
+    margin: 0;
+}
+
+.disclaimer.prominent-warning strong {
+    color: #664d03;
+}
+
+/* ========================================
+   Loading States / Skeletons
+   ======================================== */
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+    height: 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.skeleton-card {
+    height: 200px;
+    border-radius: var(--radius-lg);
+}
+
+/* Filter Loading State */
+.filtering-active .restaurant-grid {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.filtering-active::before {
+    content: 'Filtering...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-white);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+}
+
+/* ========================================
+   UI Iteration 2 Styles
+   ======================================== */
+
+/* Collapsible Sections */
+.collapsible-section {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    background: var(--bg-light);
+    transition: var(--transition-base);
+}
+
+.collapsible-header:hover {
+    background: var(--border-color);
+}
+
+.collapsible-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.collapse-icon {
+    transition: transform var(--transition-base);
+}
+
+.collapsible-section.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.collapsible-content {
+    padding: var(--spacing-lg);
+    transition: max-height var(--transition-base), padding var(--transition-base);
+}
+
+.collapsible-section.collapsed .collapsible-content {
+    max-height: 0;
+    padding: 0 var(--spacing-lg);
+    overflow: hidden;
+}
+
+/* Restaurant Actions (Like/Dislike/Save) */
+.restaurant-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-size: 0.9rem;
+}
+
+.action-btn:hover {
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.action-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.action-btn.like-restaurant-btn.active {
+    background: #22BB88;
+    border-color: #22BB88;
+}
+
+.action-btn.dislike-restaurant-btn.active {
+    background: #e74c3c;
+    border-color: #e74c3c;
+}
+
+.action-btn.save-restaurant-btn.active {
+    background: #f39c12;
+    border-color: #f39c12;
+}
+
+/* Ratings Section */
+.ratings-section {
+    margin: var(--spacing-md) 0;
+}
+
+.ratings-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.rating-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-size: 0.85rem;
+}
+
+.rating-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.rating-item.primary-rating {
+    background: rgba(243, 156, 18, 0.1);
+    border-color: #f39c12;
+}
+
+.rating-source {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.rating-value {
+    font-weight: 700;
+    color: #f39c12;
+}
+
+.rating-count {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+/* Menu Selector */
+.menu-selector {
+    margin-right: var(--spacing-md);
+}
+
+.menu-selector select {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+/* Menu Active Filters */
+.menu-active-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.menu-filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    flex: 1;
+}
+
+.clear-menu-filters-btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+/* Clickable Menu Item Card */
+.menu-item-card.clickable-card {
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.menu-item-card.clickable-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+}
+
+/* Example Builds Section */
+.example-builds-section {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 2px solid var(--border-color);
+}
+
+.example-builds-section h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.example-builds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.example-build-card {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    transition: var(--transition-base);
+}
+
+.example-build-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.example-build-card h5 {
+    margin-bottom: var(--spacing-xs);
+    color: var(--primary-color);
+    font-size: 1rem;
+}
+
+.example-build-card p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.build-nutrition {
+    display: flex;
+    gap: var(--spacing-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Customization Options in Nutrition Modal */
+.customization-options-section {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.customization-option-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.customization-option-group h4 {
+    margin-bottom: var(--spacing-sm);
+    font-size: 1rem;
+}
+
+.customization-option-group h4 .required {
+    color: #e74c3c;
+}
+
+.option-values-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.option-value-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.option-value-checkbox:hover {
+    background: var(--border-color);
+}
+
+.option-value-checkbox input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.option-value-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.option-value-nutrition-mini {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.option-value-price {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Nutrition Updated Animation */
+.nutrition-updated {
+    animation: nutritionPulse 0.3s ease;
+}
+
+@keyframes nutritionPulse {
+    0% { background-color: var(--bg-light); }
+    50% { background-color: rgba(34, 187, 136, 0.2); }
+    100% { background-color: var(--bg-light); }
+}
+
+/* Shopping List Translate Button */
+.shopping-list-translate {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--border-color);
+}
+
+/* Contact Note */
+.contact-note {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Restaurant Tags in Header */
+.restaurant-info-detail .restaurant-tags-section {
+    margin: var(--spacing-md) 0;
+}
+
+.restaurant-info-detail .restaurant-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+/* ========================================
    Menu Items
    ======================================== */
 
-.menu-header-sticky {
-    position: sticky;
-    top: 60px;
+/* Menu Header - Non-sticky per UI iteration 1 */
+.menu-header {
     background: var(--bg-white);
     padding: var(--spacing-md);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     margin-bottom: var(--spacing-lg);
-    z-index: 50;
 }
 
 .menu-search-bar {

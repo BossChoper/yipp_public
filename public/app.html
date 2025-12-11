@@ -120,9 +120,23 @@
                     </select>
                 </div>
                 
+                <!-- Filter Button for Restaurant List -->
+                <button class="filter-btn" id="restaurantListFilterBtn">🎛️ Filters</button>
+                
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="grid">⊞ Grid</button>
                     <button class="view-btn" data-view="list">☰ List</button>
+                </div>
+            </div>
+            
+            <!-- Active Filter Pills -->
+            <div class="active-filters-container" id="activeFiltersContainer" style="display: none;">
+                <div class="active-filters-header">
+                    <span class="active-filters-label">Active Filters:</span>
+                    <button class="clear-all-filters-btn" id="clearAllFiltersBtn">✕ Clear All</button>
+                </div>
+                <div class="active-filter-pills" id="activeFilterPills">
+                    <!-- Filter pills populated dynamically -->
                 </div>
             </div>
             
@@ -272,7 +286,38 @@
                         <h2 id="modalRestaurantName"></h2>
                         <p id="modalRestaurantDescription"></p>
                         
-                        <div class="contact-info">
+                        <!-- Restaurant Tags Section - Below Description -->
+                        <div class="restaurant-tags-section" id="restaurantTagsSection">
+                            <div class="restaurant-tags-container" id="modalRestaurantTags">
+                                <!-- Tags populated dynamically -->
+                            </div>
+                        </div>
+                        
+                        <!-- Ratings Section - Multiple Sources -->
+                        <div class="ratings-section" id="ratingsSection">
+                            <div class="ratings-container" id="ratingsContainer">
+                                <!-- Ratings populated dynamically -->
+                            </div>
+                        </div>
+                        
+                        <!-- Restaurant Actions (Like/Dislike/Save) -->
+                        <div class="restaurant-actions" id="restaurantActions">
+                            <button class="action-btn like-restaurant-btn" onclick="handleRestaurantPageLike()" title="Like">
+                                <span class="action-icon">👍</span>
+                                <span class="action-label">Like</span>
+                            </button>
+                            <button class="action-btn dislike-restaurant-btn" onclick="handleRestaurantPageDislike()" title="Dislike">
+                                <span class="action-icon">👎</span>
+                                <span class="action-label">Dislike</span>
+                            </button>
+                            <button class="action-btn save-restaurant-btn" onclick="handleRestaurantSave()" title="Save">
+                                <span class="action-icon">🔖</span>
+                                <span class="action-label">Save</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Contact Info - Hidden if multiple locations -->
+                        <div class="contact-info" id="singleLocationContact">
                             <div class="contact-item">
                                 <span>📍</span>
                                 <span id="modalRestaurantAddress"></span>
@@ -288,14 +333,6 @@
                                 <button class="copy-btn" onclick="copyText('email')">📋</button>
                             </div>
                         </div>
-                        
-                        <!-- Optional Map Toggle -->
-                        <div class="map-toggle">
-                            <button class="btn-secondary" onclick="toggleLocalMap()">🗺️ Show/Hide Map</button>
-                        </div>
-                        <div class="local-map" id="localMap" style="display: none;">
-                            <div class="map-placeholder-small">Local Map View</div>
-                        </div>
                     </div>
                 </div>
                 
@@ -306,14 +343,57 @@
                     <button class="disclaimer-collapse" onclick="collapseDisclaimer(this)">Collapse</button>
                 </div>
                 
+                <!-- Location Cards Section - Collapsible -->
+                <div class="collapsible-section" id="locationCardsSection">
+                    <div class="collapsible-header" onclick="toggleCollapsibleSection('locationCardsSection')">
+                        <h3>📍 Locations</h3>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="location-cards-container" id="locationCardsContainer">
+                            <!-- Location cards populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contact Section - Collapsible (with Map inside) -->
+                <div class="collapsible-section" id="contactSection">
+                    <div class="collapsible-header" onclick="toggleCollapsibleSection('contactSection')">
+                        <h3>📞 Contact</h3>
+                        <span class="collapse-icon">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="contact-details" id="contactDetails">
+                            <!-- Contact info populated dynamically for multi-location -->
+                        </div>
+                        <div class="local-map" id="localMap">
+                            <div class="map-placeholder-small">Local Map View</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Menu Section -->
                 <div class="menu-section">
-                    <div class="menu-header-sticky">
+                    <div class="menu-header">
                         <h3>Menu</h3>
+                        <!-- Menu Selector Dropdown -->
+                        <div class="menu-selector">
+                            <select id="menuSelector" onchange="handleMenuSelection()">
+                                <option value="all">All Items</option>
+                                <!-- Menu options populated dynamically -->
+                            </select>
+                        </div>
                         <div class="menu-search-bar">
-                            <input type="text" placeholder="Search menu items..." id="menuSearch">
+                            <input type="text" placeholder="Search by price, diet, nutrition, tags, customization..." id="menuSearch" oninput="handleMenuSearch()">
                             <button class="filter-btn" onclick="toggleMenuFilters()">🎛️ Filters</button>
                         </div>
+                    </div>
+                    
+                    <!-- Active Menu Tag Filters -->
+                    <div class="menu-active-filters" id="menuActiveFilters" style="display: none;">
+                        <span class="filter-label">Filtering by:</span>
+                        <div class="menu-filter-pills" id="menuFilterPills"></div>
+                        <button class="clear-menu-filters-btn" onclick="clearMenuTagFilters()">✕ Clear</button>
                     </div>
                     
                     <!-- Menu Filters -->
@@ -343,6 +423,21 @@
             
             <h2>Nutrition & Ingredients</h2>
             
+            <!-- Verification Disclaimer - PROMINENT at TOP -->
+            <div class="disclaimer prominent-warning">
+                <span class="disclaimer-icon">⚠️</span>
+                <p><strong>Important:</strong> Nutrition information is user-submitted and may not be accurate. Always verify with the restaurant for allergen and dietary concerns.</p>
+            </div>
+            
+            <!-- Customization Options Section (from menu_item_customization) -->
+            <div class="customization-options-section" id="nutritionCustomizationSection">
+                <h3>Customization Options</h3>
+                <p class="help-text">Select/deselect options to update nutrition in real-time</p>
+                <div class="customization-options-list" id="nutritionCustomizationList">
+                    <!-- Populated dynamically with checkboxes -->
+                </div>
+            </div>
+            
             <!-- Ingredients Checklist -->
             <div class="ingredients-section">
                 <h3>Ingredients</h3>
@@ -359,19 +454,13 @@
             
             <!-- Option Values for Customizable Items -->
             <div class="option-values-section" id="optionValuesSection" style="display: none;">
-                <h3>Customization Options</h3>
+                <h3>Currently Selected Options</h3>
                 <div id="optionValuesList"></div>
             </div>
             
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="generateItemImage()">🎨 Generate Image</button>
                 <button class="btn-primary" onclick="saveCustomization()">💾 Save Configuration</button>
-            </div>
-            
-            <!-- AI Generated Disclaimer -->
-            <div class="disclaimer mini">
-                <span class="disclaimer-icon">⚠️</span>
-                <p><strong>Note:</strong> Food information including ingredients and nutrition is assumed and not verified by the restaurant.</p>
             </div>
         </div>
     </div>
@@ -439,6 +528,11 @@
             <button class="modal-close" onclick="closeModal('shoppingListModal')">✕</button>
             
             <h2>🛒 Order List</h2>
+            
+            <!-- Translate Button - Only shown on Shopping List -->
+            <div class="shopping-list-translate">
+                <button class="btn-secondary" onclick="openTranslateForShoppingList()">🌍 Translate Order</button>
+            </div>
             
             <div class="shopping-list-content" id="shoppingListContent">
                 <!-- Grouped by restaurant -->
